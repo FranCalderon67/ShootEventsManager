@@ -1,0 +1,6 @@
+node_modules/
+.env
+build/
+backend/.env.example
+DEPLOY.md
+README.md
