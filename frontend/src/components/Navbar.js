@@ -16,8 +16,9 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-brand">
-        🎯 TIRO<span>SPORT</span>
+      <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <img src="/logo-navbar.svg" alt="Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
+        TIRO <span>DINÁMICO</span>
       </Link>
       <div className="navbar-nav">
         <Link to="/events" className={`nav-link ${isActive('/events') ? 'active' : ''}`}>

@@ -58,8 +58,13 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎯</div>
-          <div className="login-title">TIROSPORT</div>
+          <img
+            src="/logo-login.svg"
+            alt="Tiro Federal Mendoza"
+            style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '0.75rem' }}
+            onError={e => e.target.style.display='none'}
+          />
+          <div className="login-title">TIRO FEDERAL MENDOZA</div>
           <div className="login-subtitle">Sistema de Gestión de Eventos</div>
         </div>
 
