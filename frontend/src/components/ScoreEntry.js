@@ -18,7 +18,7 @@ function Counter({ label, labelClass, value, onChange, multiplier, description, 
   );
 }
 
-export default function ScoreEntry({ shooters, scoredShooterIds = [], stageId, onSave, saving }) {
+export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, onSave, saving }) {
   const [selectedShooter, setSelectedShooter] = useState('');
   const [a, setA] = useState(0);
   const [b, setB] = useState(0);
@@ -53,7 +53,8 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], stageId, o
   };
 
   const availableShooters = shooters.filter(s => !scoredShooterIds.includes(s._id));
-  const scoredShooters = shooters.filter(s => scoredShooterIds.includes(s._id));
+  const dqShooters = shooters.filter(s => dqShooterIds.includes(s._id) && !scoredShooterIds.filter(id => !dqShooterIds.includes(id)).includes(s._id));
+  const scoredShooters = shooters.filter(s => scoredShooterIds.includes(s._id) && !dqShooterIds.includes(s._id));
 
   return (
     <div>
@@ -73,6 +74,13 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], stageId, o
             <optgroup label="✓ Ya puntuados (bloqueados)" disabled>
               {scoredShooters.map(s => (
                 <option key={s._id} value={s._id} disabled>✓ {s.name}</option>
+              ))}
+            </optgroup>
+          )}
+          {dqShooters.length > 0 && (
+            <optgroup label="🟥 Descalificados (bloqueados)" disabled>
+              {dqShooters.map(s => (
+                <option key={s._id} value={s._id} disabled>🟥 {s.name}</option>
               ))}
             </optgroup>
           )}

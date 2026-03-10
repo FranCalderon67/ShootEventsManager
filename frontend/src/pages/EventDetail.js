@@ -160,6 +160,16 @@ export default function EventDetail() {
   // Shooters already scored in current stage (to block them in selector)
   const scoredShooterIds = currentStage?.scores.filter(s => s.saved).map(s => s.shooter?._id || s.shooter) || [];
 
+  // Shooters DQ in ANY stage of the event - blocked everywhere
+  const dqShooterIds = new Set(
+    event.stages.flatMap(stage =>
+      stage.scores.filter(s => s.dq).map(s => s.shooter?._id || s.shooter)
+    )
+  );
+
+  // Merge: blocked = scored in this stage OR DQ in any stage
+  const blockedShooterIds = [...new Set([...scoredShooterIds, ...dqShooterIds])];
+
   return (
     <div className="page">
       {showRegModal && (
@@ -339,7 +349,8 @@ export default function EventDetail() {
                     <ScoreEntry
                       key={`${activeStage}-${selectedSquadFilter}`}
                       shooters={shootersForEntry}
-                      scoredShooterIds={scoredShooterIds}
+                      scoredShooterIds={blockedShooterIds}
+                      dqShooterIds={[...dqShooterIds]}
                       stageId={activeStage}
                       onSave={handleSaveScore}
                       saving={saving}

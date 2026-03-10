@@ -277,7 +277,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
   color: var(--primary);
   transition: border-color 0.15s;
   min-height: 44px;
-  -webkit-appearance: none;
+  
 }
 .time-input:focus { outline: none; border-color: var(--primary); }
 
