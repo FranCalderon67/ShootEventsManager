@@ -22,7 +22,7 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <img src="/logo-navbar.svg" alt="Logo" style={{ height: '30px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+          <img src="/logo-navbar.png" alt="Logo" style={{ height: '30px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
           <span style={{ whiteSpace: 'nowrap' }}>TIRO <span>DINÁMICO</span></span>
         </Link>
 
@@ -64,7 +64,7 @@ export default function Navbar() {
           <div className="mobile-menu" onClick={e => e.stopPropagation()}>
             <div className="mobile-menu-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                <img src="/logo-navbar.svg" alt="Logo" style={{ height: '28px', width: 'auto' }} onError={e => e.target.style.display='none'} />
+                <img src="/logo-navbar.png" alt="Logo" style={{ height: '28px', width: 'auto' }} onError={e => e.target.style.display='none'} />
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
                   TIRO <span style={{ color: 'var(--accent)' }}>DINÁMICO</span>
                 </span>

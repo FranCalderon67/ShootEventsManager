@@ -59,7 +59,7 @@ export default function Login() {
       <div className="login-card">
         <div className="login-logo">
           <img
-            src="/logo-login.svg"
+            src="/logo-login.png"
             alt="Tiro Federal Mendoza"
             style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '0.75rem' }}
             onError={e => e.target.style.display='none'}

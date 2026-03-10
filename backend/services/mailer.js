@@ -1,15 +1,8 @@
 const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
 
-const getLogoBase64 = (filename) => {
-  try {
-    const logoPath = path.join(__dirname, '..', 'assets', filename);
-    const svg = fs.readFileSync(logoPath, 'utf8');
-    return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-  } catch {
-    return null;
-  }
+const getLogoUrl = (filename) => {
+  const frontendUrl = process.env.FRONTEND_URL || '';
+  return frontendUrl ? `${frontendUrl}/${filename}` : null;
 };
 
 const createTransport = () => nodemailer.createTransport({
@@ -63,7 +56,7 @@ const baseTemplate = ({ preheader, body, logoSrc }) => `
 const sendWelcomeMail = async ({ name, email }) => {
   if (!process.env.MAIL_USER || !process.env.MAIL_PASS) return;
   try {
-    const logoSrc = getLogoBase64('logo-login.svg');
+    const logoSrc = getLogoUrl('logo-login.png');
     const body = `
       <h1 style="color:#2a7d4f;font-size:24px;margin:0 0 8px;">Bienvenido/a, ${name}!</h1>
       <p style="color:#666;font-size:14px;margin:0 0 24px;">Tu registro fue completado exitosamente.</p>
@@ -92,7 +85,7 @@ const sendWelcomeMail = async ({ name, email }) => {
 const sendEventRegistrationMail = async ({ name, email, event, registration }) => {
   if (!process.env.MAIL_USER || !process.env.MAIL_PASS) return;
   try {
-    const logoSrc = getLogoBase64('logo-navbar.svg');
+    const logoSrc = getLogoUrl('logo-navbar.png');
     const eventDate = new Date(event.date).toLocaleDateString('es-AR', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
