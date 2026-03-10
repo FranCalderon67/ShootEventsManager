@@ -30,7 +30,8 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], stageId, o
   const total = timeNum + (b * 1) + (c * 3) + (penalty * 5);
 
   const handleTimeChange = (e) => {
-    const val = e.target.value;
+    // Replace comma with dot for decimal support on mobile keyboards
+    const val = e.target.value.replace(',', '.');
     if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) setTime(val);
   };
 

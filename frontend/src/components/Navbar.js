@@ -17,10 +17,10 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <img src="/logo-navbar.svg" alt="Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
-        TIRO <span>DINÁMICO</span>
+        <img src="/logo-navbar.svg" alt="Logo" style={{ height: '30px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>TIRO <span>DINÁMICO</span></span>
       </Link>
-      <div className="navbar-nav">
+      <div className="navbar-nav" style={{ overflow: "visible", flexShrink: 0 }}>
         <Link to="/events" className={`nav-link ${isActive('/events') ? 'active' : ''}`}>
           Eventos
         </Link>
@@ -29,7 +29,7 @@ export default function Navbar() {
             Admin <span className="nav-badge">ADM</span>
           </Link>
         )}
-        <span className="nav-username">{user?.name}</span>
+        <span className="nav-username" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</span>
         <button
           onClick={handleLogout}
           className="btn btn-outline btn-sm"
