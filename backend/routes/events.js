@@ -262,20 +262,25 @@ router.post('/:id/stages/:stageId/scores', auth, adminOnly, async (req, res) => 
     const stage = event.stages.id(req.params.stageId);
     if (!stage) return res.status(404).json({ message: 'Etapa no encontrada' });
 
-    const { shooter, a, b, c, penalty, time } = req.body;
-    const total = time + (b * 1) + (c * 3) + (penalty * 5);
+    const { shooter, a, b, c, noShoot = 0, miss = 0, procedural = 0, warnings = 0, dq = false, time } = req.body;
+    const penalties = (noShoot + miss + procedural) * 5;
+    const total = time + (b * 1) + (c * 3) + penalties;
 
     const existingScore = stage.scores.find(s => s.shooter.toString() === shooter);
     if (existingScore) {
       existingScore.a = a;
       existingScore.b = b;
       existingScore.c = c;
-      existingScore.penalty = penalty;
+      existingScore.noShoot = noShoot;
+      existingScore.miss = miss;
+      existingScore.procedural = procedural;
+      existingScore.warnings = warnings;
+      existingScore.dq = dq;
       existingScore.time = time;
       existingScore.total = total;
       existingScore.saved = true;
     } else {
-      stage.scores.push({ shooter, a, b, c, penalty, time, total, saved: true });
+      stage.scores.push({ shooter, a, b, c, noShoot, miss, procedural, warnings, dq, time, total, saved: true });
     }
 
     await event.save();

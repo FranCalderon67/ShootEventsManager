@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 const CATEGORIAS = ['Junior', 'General', 'Senior', 'Semi Senior', 'Super Senior', 'Lady'];
-const DIVISIONES = ['Legend', 'Custom', 'Stock', 'Optic'];
+const DIVISIONES = ['Custom', 'Stock', 'Optic'];
 
 export default function RegistrationModal({ onConfirm, onCancel, loading, existing }) {
   const [categoria, setCategoria] = useState(existing?.categoria || '');

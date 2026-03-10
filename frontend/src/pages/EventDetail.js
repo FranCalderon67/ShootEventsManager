@@ -367,7 +367,10 @@ export default function EventDetail() {
                           <th>A</th>
                           <th>B</th>
                           <th>C</th>
-                          <th>Pen</th>
+                          <th title="No Shoot">NS</th>
+                          <th title="Miss">Miss</th>
+                          <th title="Falta de Procedimiento">FP</th>
+                          <th title="Advertencias">Adv</th>
                           <th>Total</th>
                         </tr>
                       </thead>
@@ -382,8 +385,11 @@ export default function EventDetail() {
                               <td>{score.a}</td>
                               <td>{score.b}</td>
                               <td>{score.c}</td>
-                              <td>{score.penalty}</td>
-                              <td><strong>{parseFloat(score.total).toFixed(2)}</strong></td>
+                              <td>{score.noShoot ?? 0}</td>
+                              <td>{score.miss ?? 0}</td>
+                              <td>{score.procedural ?? 0}</td>
+                              <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
+                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                             </tr>
                           ))}
                       </tbody>
