@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin: user?.role === 'admin', isOC: (eventRegistrations) => eventRegistrations?.find(r => (r.user?._id || r.user) === user?._id)?.isOC || false }}>
       {children}
     </AuthContext.Provider>
   );

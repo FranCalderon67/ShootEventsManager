@@ -1,6 +1,6 @@
 const express = require('express');
 const Event = require('../models/Event');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -107,14 +107,16 @@ router.post('/:id/register', auth, async (req, res) => {
     const { categoria, division } = req.body;
     if (!categoria || !division) return res.status(400).json({ message: 'Categoría y división son requeridas' });
 
+    const { isOC = false } = req.body;
+
     const alreadyRegistered = event.registrations.some(r => r.user.toString() === userId.toString());
     if (alreadyRegistered) {
-      // Update existing registration
       const reg = event.registrations.find(r => r.user.toString() === userId.toString());
       reg.categoria = categoria;
       reg.division = division;
+      reg.isOC = isOC;
     } else {
-      event.registrations.push({ user: userId, categoria, division });
+      event.registrations.push({ user: userId, categoria, division, isOC });
     }
     await event.save();
     const populated = await Event.findById(req.params.id).populate('registrations.user', 'name email').populate('squads.members', 'name email').populate('stages.scores.shooter', 'name email').populate('createdBy', 'name');
@@ -252,8 +254,8 @@ router.delete('/:id/stages/:stageId', auth, adminOnly, async (req, res) => {
 
 // ---- SCORES ----
 
-// Save score for a shooter in a stage (admin only)
-router.post('/:id/stages/:stageId/scores', auth, adminOnly, async (req, res) => {
+// Save score for a shooter in a stage (admin or OC)
+router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });

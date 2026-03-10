@@ -35,7 +35,8 @@ const squadSchema = new mongoose.Schema({
 const registrationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   categoria: { type: String, enum: ['Junior', 'General', 'Senior', 'Semi Senior', 'Super Senior', 'Lady'], required: true },
-  division: { type: String, enum: ['Custom', 'Stock', 'Optic'], required: true }
+  division: { type: String, enum: ['Custom', 'Stock', 'Optic'], required: true },
+  isOC: { type: Boolean, default: false }
 });
 
 const eventSchema = new mongoose.Schema({

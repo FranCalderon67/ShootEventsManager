@@ -7,7 +7,7 @@ import RegistrationModal from '../components/RegistrationModal';
 
 export default function EventDetail() {
   const { id } = useParams();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isOC } = useAuth();
   const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
@@ -148,6 +148,7 @@ export default function EventDetail() {
   if (!event) return <div className="page"><div className="alert alert-error">Evento no encontrado</div></div>;
 
   const currentStage = event.stages.find(s => s._id === activeStage);
+  const canScore = isAdmin || isOC(event.registrations);
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
   const myReg = getMyRegistration(event);
   const visibleRankings = isAdmin ? rankings : rankings.filter(r => r.shooter._id === user._id);
@@ -262,7 +263,7 @@ export default function EventDetail() {
       {/* Tabs */}
       <div className="tabs">
         <button className={`tab ${activeTab === 'stages' ? 'active' : ''}`} onClick={() => setActiveTab('stages')}>
-          🏁 Etapas {isAdmin && '/ Puntuación'}
+          🏁 Etapas {canScore && '/ Puntuación'}
         </button>
         <button className={`tab ${activeTab === 'squads' ? 'active' : ''}`} onClick={() => setActiveTab('squads')}>
           👥 Escuadras
@@ -315,7 +316,7 @@ export default function EventDetail() {
           ) : !currentStage ? null : (
             <div className="grid-2">
               {/* Score entry - admin only, hidden when locked */}
-              {isAdmin && !isLocked(event) && (
+              {canScore && !isLocked(event) && (
                 <div className="card">
                   <div className="card-header">
                     <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
@@ -595,6 +596,7 @@ export default function EventDetail() {
                           </td>
                           <td><span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span></td>
                           <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{reg?.division || '—'}</span></td>
+                          <td>{reg?.isOC ? <span className="badge" style={{ background: '#d97706', color: '#fff', fontSize: '0.7rem' }}>🏅 OC</span> : '—'}</td>
                           {event.stages.map(s => (
                             <td key={s._id}>
                               {r.stageScores[s._id] !== undefined

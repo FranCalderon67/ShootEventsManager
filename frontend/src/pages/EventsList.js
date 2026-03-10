@@ -140,6 +140,7 @@ export default function EventsList() {
                             <span className="badge badge-active">✓ Inscripto</span>
                             <span className="badge" style={{ background: '#f3f4f6', color: '#374151' }}>{myReg.categoria}</span>
                             <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>{myReg.division}</span>
+                            {myReg.isOC && <span className="badge" style={{ background: '#d97706', color: '#fff' }}>🏅 OC</span>}
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
