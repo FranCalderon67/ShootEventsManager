@@ -1,9 +1,5 @@
 const nodemailer = require('nodemailer');
-
-const getLogoUrl = (filename) => {
-  const frontendUrl = process.env.FRONTEND_URL || '';
-  return frontendUrl ? `${frontendUrl}/${filename}` : null;
-};
+const path = require('path');
 
 const createTransport = () => nodemailer.createTransport({
   service: 'gmail',
@@ -13,7 +9,7 @@ const createTransport = () => nodemailer.createTransport({
   },
 });
 
-const baseTemplate = ({ preheader, body, logoSrc }) => `
+const baseTemplate = ({ preheader, body, logoCid }) => `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -28,7 +24,7 @@ const baseTemplate = ({ preheader, body, logoSrc }) => `
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
           <tr>
             <td style="background:#2a7d4f;border-radius:12px 12px 0 0;padding:32px;text-align:center;">
-              ${logoSrc ? `<img src="${logoSrc}" alt="Tiro Federal Mendoza" style="height:80px;width:auto;display:block;margin:0 auto 16px;" />` : ''}
+              ${logoCid ? `<img src="cid:${logoCid}" alt="Tiro Federal Mendoza" style="height:80px;width:auto;display:block;margin:0 auto 16px;" />` : ''}
               <div style="color:rgba(255,255,255,0.7);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;">Tiro Federal Mendoza</div>
             </td>
           </tr>
@@ -40,7 +36,7 @@ const baseTemplate = ({ preheader, body, logoSrc }) => `
           <tr>
             <td style="background:#1a1a1a;border-radius:0 0 12px 12px;padding:20px 40px;text-align:center;">
               <p style="color:rgba(255,255,255,0.4);font-size:11px;margin:0;line-height:1.6;">
-                Correo automático de <strong style="color:rgba(255,255,255,0.6);">Tiro Federal Mendoza</strong>.<br>
+                Correo automatico de <strong style="color:rgba(255,255,255,0.6);">Tiro Federal Mendoza</strong>.<br>
                 Por favor no respondas a este mensaje.
               </p>
             </td>
@@ -56,24 +52,30 @@ const baseTemplate = ({ preheader, body, logoSrc }) => `
 const sendWelcomeMail = async ({ name, email }) => {
   if (!process.env.MAIL_USER || !process.env.MAIL_PASS) return;
   try {
-    const logoSrc = getLogoUrl('logo-login.png');
+    const logoCid = 'logo-login';
     const body = `
       <h1 style="color:#2a7d4f;font-size:24px;margin:0 0 8px;">Bienvenido/a, ${name}!</h1>
       <p style="color:#666;font-size:14px;margin:0 0 24px;">Tu registro fue completado exitosamente.</p>
       <div style="background:#f8fdf9;border:1px solid #d1fae5;border-radius:8px;padding:20px;margin-bottom:24px;">
         <p style="margin:0 0 8px;color:#374151;font-size:14px;font-weight:700;">Registracion realizada</p>
         <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
-          Ya podés iniciar sesión y consultar los eventos disponibles para inscribirte.
+          Ya podes iniciar sesion y consultar los eventos disponibles para inscribirte.
         </p>
       </div>
       <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;border-top:1px solid #f3f4f6;padding-top:16px;">
-        Si no creaste esta cuenta, ignorá este mensaje.
+        Si no creaste esta cuenta, ignora este mensaje.
       </p>`;
+
     await createTransport().sendMail({
       from: `"Tiro Federal Mendoza" <${process.env.MAIL_USER}>`,
       to: email,
       subject: 'Registracion realizada — Tiro Federal Mendoza',
-      html: baseTemplate({ preheader: `Hola ${name}, tu registro fue exitoso.`, body, logoSrc }),
+      html: baseTemplate({ preheader: `Hola ${name}, tu registro fue exitoso.`, body, logoCid }),
+      attachments: [{
+        filename: 'logo-login.png',
+        path: path.join(__dirname, '..', 'assets', 'logo-login.png'),
+        cid: logoCid
+      }]
     });
     console.log(`📧 Mail de bienvenida enviado a ${email}`);
   } catch (err) {
@@ -81,11 +83,11 @@ const sendWelcomeMail = async ({ name, email }) => {
   }
 };
 
-// Mail 2: Inscripción a evento confirmada
+// Mail 2: Inscripcion a evento confirmada
 const sendEventRegistrationMail = async ({ name, email, event, registration }) => {
   if (!process.env.MAIL_USER || !process.env.MAIL_PASS) return;
   try {
-    const logoSrc = getLogoUrl('logo-navbar.png');
+    const logoCid = 'logo-navbar';
     const eventDate = new Date(event.date).toLocaleDateString('es-AR', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
@@ -151,7 +153,12 @@ const sendEventRegistrationMail = async ({ name, email, event, registration }) =
       from: `"Tiro Federal Mendoza" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Inscripcion confirmada — ${event.name}`,
-      html: baseTemplate({ preheader: `Tu inscripcion a ${event.name} fue confirmada.`, body, logoSrc }),
+      html: baseTemplate({ preheader: `Tu inscripcion a ${event.name} fue confirmada.`, body, logoCid }),
+      attachments: [{
+        filename: 'logo-navbar.png',
+        path: path.join(__dirname, '..', 'assets', 'logo-navbar.png'),
+        cid: logoCid
+      }]
     });
     console.log(`📧 Mail de inscripcion enviado a ${email}`);
   } catch (err) {

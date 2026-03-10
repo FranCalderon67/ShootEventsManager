@@ -1,6 +1,8 @@
 const express = require('express');
 const Event = require('../models/Event');
 const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
+const User = require('../models/User');
+const { sendEventRegistrationMail } = require('../services/mailer');
 
 const router = express.Router();
 
@@ -110,6 +112,8 @@ router.post('/:id/register', auth, async (req, res) => {
     const { isOC = false } = req.body;
 
     const alreadyRegistered = event.registrations.some(r => r.user.toString() === userId.toString());
+    const isNewRegistration = !alreadyRegistered;
+
     if (alreadyRegistered) {
       const reg = event.registrations.find(r => r.user.toString() === userId.toString());
       reg.categoria = categoria;
@@ -120,6 +124,24 @@ router.post('/:id/register', auth, async (req, res) => {
     }
     await event.save();
     const populated = await Event.findById(req.params.id).populate('registrations.user', 'name email').populate('squads.members', 'name email').populate('stages.scores.shooter', 'name email').populate('createdBy', 'name');
+
+    // Send confirmation email only on new registration (non-blocking)
+    if (isNewRegistration) {
+      try {
+        const registeredUser = await User.findById(userId);
+        if (registeredUser) {
+          sendEventRegistrationMail({
+            name: registeredUser.name,
+            email: registeredUser.email,
+            event: populated,
+            registration: { categoria, division, isOC }
+          });
+        }
+      } catch (mailErr) {
+        console.error('Mail error:', mailErr.message);
+      }
+    }
+
     res.json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
