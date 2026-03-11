@@ -316,6 +316,32 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
   }
 });
 
+// Manual DQ - mark/unmark a competitor as disqualified (admin or OC)
+router.put('/:id/registrations/:userId/dq', auth, adminOrOC, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está bloqueado' });
+
+    const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
+    if (!reg) return res.status(404).json({ message: 'Tirador no inscripto en este evento' });
+
+    reg.dq = req.body.dq !== undefined ? req.body.dq : true;
+    if (req.body.dqReason !== undefined) reg.dqReason = req.body.dqReason;
+    if (!reg.dq) reg.dqReason = '';
+    await event.save();
+
+    const populated = await Event.findById(req.params.id)
+      .populate('registrations.user', 'name email')
+      .populate('squads.members', 'name email')
+      .populate('stages.scores.shooter', 'name email')
+      .populate('createdBy', 'name');
+    res.json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get rankings for event
 router.get('/:id/rankings', auth, async (req, res) => {
   try {
@@ -328,7 +354,27 @@ router.get('/:id/rankings', auth, async (req, res) => {
     const registrations = event.registrations || [];
     if (stageCount === 0) return res.json([]);
 
+    // Build map of manually DQ'd shooters from registrations
+    const manualDqIds = new Set(
+      event.registrations.filter(r => r.dq).map(r => r.user._id?.toString() || r.user.toString())
+    );
+
     const shooterMap = {};
+
+    // Add all registered shooters to map first (so DQ ones appear even with no scores)
+    event.registrations.forEach(reg => {
+      if (!reg.user) return;
+      const id = reg.user._id?.toString() || reg.user.toString();
+      if (!shooterMap[id]) {
+        shooterMap[id] = {
+          shooter: reg.user,
+          stageScores: {},
+          totalSum: 0,
+          stagesCompleted: 0,
+          dq: reg.dq || false
+        };
+      }
+    });
 
     event.stages.forEach(stage => {
       stage.scores.filter(s => s.saved).forEach(score => {
@@ -338,12 +384,18 @@ router.get('/:id/rankings', auth, async (req, res) => {
             shooter: score.shooter,
             stageScores: {},
             totalSum: 0,
-            stagesCompleted: 0
+            stagesCompleted: 0,
+            dq: manualDqIds.has(id)
           };
         }
-        shooterMap[id].stageScores[stage._id.toString()] = score.total;
-        shooterMap[id].totalSum += score.total;
-        shooterMap[id].stagesCompleted += 1;
+        // Mark stage score as DQ if score.dq (warnings) OR manual DQ
+        const stageDq = score.dq || manualDqIds.has(id);
+        shooterMap[id].stageScores[stage._id.toString()] = stageDq ? 'DQ' : score.total;
+        if (!stageDq) {
+          shooterMap[id].totalSum += score.total;
+          shooterMap[id].stagesCompleted += 1;
+        }
+        if (score.dq) shooterMap[id].dq = true; // warnings DQ also marks overall
       });
     });
 
@@ -351,17 +403,21 @@ router.get('/:id/rankings', auth, async (req, res) => {
       shooter: entry.shooter,
       stageScores: entry.stageScores,
       stagesCompleted: entry.stagesCompleted,
-      average: entry.stagesCompleted > 0 ? entry.totalSum / stageCount : null,
+      dq: entry.dq,
+      average: entry.dq ? null : (entry.stagesCompleted > 0 ? entry.totalSum / stageCount : null),
       totalSum: entry.totalSum
     }));
 
+    // Non-DQ sorted by average, DQ at the end
     rankings.sort((a, b) => {
+      if (a.dq && b.dq) return 0;
+      if (a.dq) return 1;
+      if (b.dq) return -1;
       if (a.average === null) return 1;
       if (b.average === null) return -1;
       return a.average - b.average;
     });
 
-    // If requesting user is not admin, only return their own data
     res.json(rankings);
   } catch (error) {
     res.status(500).json({ message: error.message });

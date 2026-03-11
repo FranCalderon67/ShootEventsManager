@@ -79,10 +79,15 @@ export default function EventDetail() {
   const handleSaveScore = async (scoreData) => {
     setSaving(true);
     try {
-      await API.post(`/events/${id}/stages/${activeStage}/scores`, scoreData);
+      const { manualDQ, ...scorePayload } = scoreData;
+      await API.post(`/events/${id}/stages/${activeStage}/scores`, scorePayload);
+      // If manual DQ checked, also mark shooter as DQ in their registration
+      if (manualDQ) {
+        await API.put(`/events/${id}/registrations/${scoreData.shooter}/dq`, { dq: true, dqReason: scoreData.dqReason || '' });
+      }
       await fetchEvent();
       await fetchRankings();
-      setMessage('✅ Puntuación guardada correctamente');
+      setMessage(scoreData.dq ? '🟥 Tirador descalificado y puntuación guardada' : '✅ Puntuación guardada correctamente');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       setMessage('❌ Error al guardar: ' + (err.response?.data?.message || err.message));
@@ -141,6 +146,19 @@ export default function EventDetail() {
     } catch (err) { alert(err.response?.data?.message || 'Error'); }
   };
 
+  const handleToggleDQ = async (userId, currentDq) => {
+    const action = currentDq ? 'quitar la descalificación de' : 'descalificar a';
+    const shooter = allShooters.find(s => s._id === userId);
+    if (!window.confirm(`¿Querés ${action} ${shooter?.name || 'este tirador'}?`)) return;
+    try {
+      const res = await API.put(`/events/${id}/registrations/${userId}/dq`, { dq: !currentDq });
+      setEvent(res.data);
+      await fetchRankings();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar DQ');
+    }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const statusLabel = { upcoming: 'Próximo', active: 'En curso', finished: 'Finalizado' };
 
@@ -161,12 +179,13 @@ export default function EventDetail() {
   // Shooters already scored in current stage (to block them in selector)
   const scoredShooterIds = currentStage?.scores.filter(s => s.saved).map(s => s.shooter?._id || s.shooter) || [];
 
-  // Shooters DQ in ANY stage of the event - blocked everywhere
-  const dqShooterIds = new Set(
-    event.stages.flatMap(stage =>
+  // Shooters DQ: via warnings in any stage OR manual DQ in registration
+  const dqShooterIds = new Set([
+    ...event.stages.flatMap(stage =>
       stage.scores.filter(s => s.dq).map(s => s.shooter?._id || s.shooter)
-    )
-  );
+    ),
+    ...(event.registrations?.filter(r => r.dq).map(r => r.user?._id || r.user) || [])
+  ]);
 
   // Merge: blocked = scored in this stage OR DQ in any stage
   const blockedShooterIds = [...new Set([...scoredShooterIds, ...dqShooterIds])];
@@ -225,15 +244,6 @@ export default function EventDetail() {
                   + Inscribirme al evento
                 </button>
               )
-            )}
-            {myReg && event.status !== 'finished' && (
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className="badge badge-active">✓ Inscripto</span>
-                <span className="badge" style={{ background: '#f3f4f6', color: '#374151' }}>{myReg.categoria}</span>
-                <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>{myReg.division}</span>
-                {!isDeadlinePassed(event) && <button className="btn btn-outline btn-sm" onClick={() => setShowRegModal(true)}>Cambiar</button>}
-                <button className="btn btn-danger btn-sm" onClick={handleUnregister}>Cancelar</button>
-              </div>
             )}
             {isAdmin && !isLocked(event) && (
               <button className="btn btn-accent btn-sm" onClick={() => navigate(`/admin/events/${id}/edit`)}>
@@ -401,7 +411,7 @@ export default function EventDetail() {
                               <td>{score.miss ?? 0}</td>
                               <td>{score.procedural ?? 0}</td>
                               <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                             </tr>
                           ))}
                       </tbody>
@@ -465,6 +475,8 @@ export default function EventDetail() {
               </div>
             </div>
           )}
+
+
 
           {event.squads.length === 0 ? (
             <div className="empty-state">
@@ -581,32 +593,51 @@ export default function EventDetail() {
                   <tbody>
                     {visibleRankings.map((r, i) => {
                       const reg = event.registrations?.find(reg => (reg.user?._id || reg.user) === r.shooter._id);
+                      const rowDq = r.dq;
+                      // Count non-DQ entries for medal positions
+                      const nonDqIndex = visibleRankings.filter(x => !x.dq).indexOf(r);
                       return (
-                        <tr key={r.shooter._id} style={r.shooter._id === user._id ? { background: 'rgba(42,125,79,0.05)' } : {}}>
+                        <tr key={r.shooter._id} style={{
+                          background: rowDq ? '#fef2f2' : r.shooter._id === user._id ? 'rgba(42,125,79,0.05)' : '',
+                          opacity: rowDq ? 0.8 : 1
+                        }}>
                           <td>
-                            <span className={`rank ${i < 3 ? `rank-${i + 1}` : ''}`}>
-                              {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
-                            </span>
+                            {rowDq ? (
+                              <span style={{ fontSize: '1rem' }}>🟥</span>
+                            ) : (
+                              <span className={`rank ${nonDqIndex < 3 ? `rank-${nonDqIndex + 1}` : ''}`}>
+                                {nonDqIndex < 3 ? ['🥇', '🥈', '🥉'][nonDqIndex] : nonDqIndex + 1}
+                              </span>
+                            )}
                           </td>
                           <td>
-                            <strong>{r.shooter.name}</strong>
+                            <strong style={{ color: rowDq ? '#ef4444' : 'inherit', textDecoration: rowDq ? 'line-through' : 'none' }}>
+                              {r.shooter.name}
+                            </strong>
                             {r.shooter._id === user._id && (
                               <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 600 }}>YO</span>
                             )}
+                            {rowDq && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#ef4444', fontWeight: 700 }}>DQ</span>}
                           </td>
                           <td><span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span></td>
                           <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{reg?.division || '—'}</span></td>
                           <td>{reg?.isOC ? <span className="badge" style={{ background: '#d97706', color: '#fff', fontSize: '0.7rem' }}>🏅 OC</span> : '—'}</td>
                           {event.stages.map(s => (
                             <td key={s._id}>
-                              {r.stageScores[s._id] !== undefined
-                                ? parseFloat(r.stageScores[s._id]).toFixed(2)
-                                : <span style={{ color: 'var(--text-light)' }}>—</span>}
+                              {r.stageScores[s._id] === 'DQ' ? (
+                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>DQ</span>
+                              ) : r.stageScores[s._id] !== undefined ? (
+                                parseFloat(r.stageScores[s._id]).toFixed(2)
+                              ) : rowDq ? (
+                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>DQ</span>
+                              ) : (
+                                <span style={{ color: 'var(--text-light)' }}>—</span>
+                              )}
                             </td>
                           ))}
                           <td>
-                            <strong style={{ color: i === 0 ? 'var(--gold)' : 'var(--text)' }}>
-                              {r.average !== null ? r.average.toFixed(2) : '—'}
+                            <strong style={{ color: rowDq ? '#ef4444' : nonDqIndex === 0 ? 'var(--gold)' : 'var(--text)' }}>
+                              {rowDq ? 'DQ' : r.average !== null ? r.average.toFixed(2) : '—'}
                             </strong>
                           </td>
                         </tr>

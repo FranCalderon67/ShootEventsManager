@@ -10,6 +10,7 @@ const scoreSchema = new mongoose.Schema({
   procedural: { type: Number, default: 0 },
   warnings: { type: Number, default: 0 },
   dq: { type: Boolean, default: false },
+  dqReason: { type: String, default: '' },
   time: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   saved: { type: Boolean, default: false }
@@ -36,7 +37,9 @@ const registrationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   categoria: { type: String, enum: ['Junior', 'General', 'Senior', 'Semi Senior', 'Super Senior', 'Lady'], required: true },
   division: { type: String, enum: ['Custom', 'Stock', 'Optic'], required: true },
-  isOC: { type: Boolean, default: false }
+  isOC: { type: Boolean, default: false },
+  dq: { type: Boolean, default: false },
+  dqReason: { type: String, default: '' }
 });
 
 const eventSchema = new mongoose.Schema({
