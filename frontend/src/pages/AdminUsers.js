@@ -40,6 +40,15 @@ export default function AdminUsers() {
     fetchUsers();
   };
 
+  const handleToggleOC = async (u) => {
+    try {
+      const res = await API.put(`/users/${u._id}/oc`, { isOC: !u.isOC });
+      setUsers(users.map(x => x._id === u._id ? res.data : x));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar OC');
+    }
+  };
+
   return (
     <div className="page">
       <div className="section-header">
@@ -94,6 +103,7 @@ export default function AdminUsers() {
                 <th>Usuario</th>
                 <th>Email</th>
                 <th>Rol</th>
+                <th>OC</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -116,6 +126,19 @@ export default function AdminUsers() {
                     <span className={`badge ${u.role === 'admin' ? 'badge-active' : 'badge-upcoming'}`}>
                       {u.role === 'admin' ? 'Admin' : 'Usuario'}
                     </span>
+                  </td>
+                  <td>
+                    {u.role !== 'admin' && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', justifyContent: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={u.isOC || false}
+                          onChange={() => handleToggleOC(u)}
+                          style={{ width: '16px', height: '16px', accentColor: '#d97706', cursor: 'pointer' }}
+                        />
+                        {u.isOC && <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 700 }}>🏅</span>}
+                      </label>
+                    )}
                   </td>
                   <td>
                     {u._id !== currentUser._id && (

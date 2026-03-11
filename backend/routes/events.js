@@ -276,7 +276,7 @@ router.delete('/:id/stages/:stageId', auth, adminOnly, async (req, res) => {
 
 // ---- SCORES ----
 
-// Save score for a shooter in a stage (admin or OC)
+// Save score for a shooter in a stage (admin or OC - Oficial de Campo)
 router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -310,6 +310,29 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
     await event.save();
     const populated = await Event.findById(req.params.id)
       .populate('stages.scores.shooter', 'name email');
+    res.json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Toggle OC (Oficial de Campo) status for a registration (admin only)
+router.put('/:id/registrations/:userId/oc', auth, adminOnly, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+
+    const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
+    if (!reg) return res.status(404).json({ message: 'Tirador no inscripto en este evento' });
+
+    reg.isOC = req.body.isOC !== undefined ? req.body.isOC : !reg.isOC;
+    await event.save();
+
+    const populated = await Event.findById(req.params.id)
+      .populate('registrations.user', 'name email')
+      .populate('squads.members', 'name email')
+      .populate('stages.scores.shooter', 'name email')
+      .populate('createdBy', 'name');
     res.json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });

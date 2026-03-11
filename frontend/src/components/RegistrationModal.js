@@ -6,11 +6,9 @@ const DIVISIONES = ['Custom', 'Stock', 'Optic'];
 export default function RegistrationModal({ onConfirm, onCancel, loading, existing }) {
   const [categoria, setCategoria] = useState(existing?.categoria || '');
   const [division, setDivision] = useState(existing?.division || '');
-  const [isOC, setIsOC] = useState(existing?.isOC || false);
-
   const handleSubmit = () => {
     if (!categoria || !division) return alert('Seleccioná categoría y división');
-    onConfirm({ categoria, division, isOC });
+    onConfirm({ categoria, division });
   };
 
   return (
@@ -83,37 +81,7 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
             </div>
           </div>
 
-          {/* OC checkbox */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.75rem',
-                cursor: 'pointer',
-                padding: '0.875rem',
-                borderRadius: 'var(--radius)',
-                border: `2px solid ${isOC ? '#d97706' : 'var(--border)'}`,
-                background: isOC ? '#fffbeb' : '#fafafa',
-                transition: 'all 0.15s',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={isOC}
-                onChange={e => setIsOC(e.target.checked)}
-                style={{ width: '18px', height: '18px', marginTop: '1px', accentColor: '#d97706', flexShrink: 0, cursor: 'pointer' }}
-              />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: isOC ? '#92400e' : 'var(--text)' }}>
-                  🏅 Soy OC (Oficial de Competencia)
-                </div>
-                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '0.2rem', lineHeight: 1.4 }}>
-                  Al marcar esta opción podés cargar la puntuación de otros tiradores y la tuya propia en cada etapa del evento.
-                </div>
-              </div>
-            </label>
-          </div>
+
         </div>
 
         <div className="modal-footer">

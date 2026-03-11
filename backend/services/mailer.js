@@ -140,7 +140,7 @@ const sendEventRegistrationMail = async ({ name, email, event, registration }) =
             </td>
           </tr>
           ${registration.isOC ? `<tr><td colspan="2" style="padding:12px 0 0;">
-            <span style="background:#d97706;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">OC — Oficial de Competencia</span>
+            <span style="background:#d97706;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">OC — Oficial de Campo</span>
           </td></tr>` : ''}
         </table>
       </div>

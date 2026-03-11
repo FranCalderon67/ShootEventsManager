@@ -24,23 +24,12 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-const adminOrOC = async (req, res, next) => {
-  // OC: must be registered as OC in the specific event (checked in route)
+const adminOrOC = (req, res, next) => {
   // Admin always passes
   if (req.user.role === 'admin') return next();
-
-  // For OC: verify they are registered as OC in the event
-  const eventId = req.params.id;
-  if (!eventId) return res.status(403).json({ message: 'Acceso denegado' });
-
-  const Event = require('../models/Event');
-  const event = await Event.findById(eventId);
-  if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
-
-  const reg = event.registrations.find(r => r.user.toString() === req.user._id.toString());
-  if (reg && reg.isOC) return next();
-
-  return res.status(403).json({ message: 'Acceso solo para administradores u OC del evento' });
+  // Global OC role on user passes
+  if (req.user.isOC) return next();
+  return res.status(403).json({ message: 'Acceso solo para administradores u Oficiales de Campo' });
 };
 
 module.exports = { auth, adminOnly, adminOrOC };

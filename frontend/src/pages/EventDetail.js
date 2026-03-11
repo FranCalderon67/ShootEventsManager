@@ -166,7 +166,7 @@ export default function EventDetail() {
   if (!event) return <div className="page"><div className="alert alert-error">Evento no encontrado</div></div>;
 
   const currentStage = event.stages.find(s => s._id === activeStage);
-  const canScore = isAdmin || isOC(event.registrations);
+  const canScore = isAdmin || isOC;
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
   const myReg = getMyRegistration(event);
   const visibleRankings = isAdmin ? rankings : rankings.filter(r => r.shooter._id === user._id);
@@ -411,7 +411,7 @@ export default function EventDetail() {
                               <td>{score.miss ?? 0}</td>
                               <td>{score.procedural ?? 0}</td>
                               <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                              <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                             </tr>
                           ))}
                       </tbody>
@@ -589,6 +589,7 @@ export default function EventDetail() {
                       {event.stages.map((s, i) => <th key={s._id}>Et. {i + 1}</th>)}
                       <th>Promedio</th>
                     </tr>
+
                   </thead>
                   <tbody>
                     {visibleRankings.map((r, i) => {
@@ -621,7 +622,6 @@ export default function EventDetail() {
                           </td>
                           <td><span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span></td>
                           <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{reg?.division || '—'}</span></td>
-                          <td>{reg?.isOC ? <span className="badge" style={{ background: '#d97706', color: '#fff', fontSize: '0.7rem' }}>🏅 OC</span> : '—'}</td>
                           {event.stages.map(s => (
                             <td key={s._id}>
                               {r.stageScores[s._id] === 'DQ' ? (
