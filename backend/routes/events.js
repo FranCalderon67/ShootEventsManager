@@ -2,7 +2,7 @@ const express = require('express');
 const Event = require('../models/Event');
 const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 const User = require('../models/User');
-const { sendEventRegistrationMail } = require('../services/mailer');
+const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer');
 
 const router = express.Router();
 
@@ -310,6 +310,23 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
     await event.save();
     const populated = await Event.findById(req.params.id)
       .populate('stages.scores.shooter', 'name email');
+
+    // Send score summary email to the shooter (non-blocking)
+    try {
+      const shooterUser = await User.findById(shooter);
+      if (shooterUser) {
+        sendScoreMail({
+          name: shooterUser.name,
+          email: shooterUser.email,
+          eventName: event.name,
+          stageName: stage.name,
+          score: { a, b, c, miss, noShoot, procedural, time, total, dq, warnings }
+        });
+      }
+    } catch (mailErr) {
+      console.error('Score mail error:', mailErr.message);
+    }
+
     res.json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
