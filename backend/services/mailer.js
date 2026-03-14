@@ -15,26 +15,48 @@ const baseTemplate = ({ preheader, body, logoCid }) => `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <style>
+    :root { color-scheme: light only; }
+    * { -webkit-text-size-adjust: 100%; box-sizing: border-box; }
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; }
+      .email-body { padding: 24px 20px !important; }
+      .email-footer { padding: 16px 20px !important; }
+      .flag-img { height: auto !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#f4f1ec;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <div style="display:none;max-height:0;overflow:hidden;color:#f4f1ec;">${preheader}</div>
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ec;padding:32px 16px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ec;padding:24px 12px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <table class="email-container" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
           <tr>
-            <td style="background:#2a7d4f;border-radius:12px 12px 0 0;padding:32px;text-align:center;">
-              ${logoCid ? `<img src="cid:${logoCid}" alt="Tiro Federal Mendoza" style="width:140px;height:140px;display:block;margin:0 auto 16px;object-fit:contain;border-radius:50%;" />` : ''}
-              <div style="color:rgba(255,255,255,0.7);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;">Tiro Federal Mendoza</div>
+            <td style="border-radius:12px 12px 0 0;padding:0;overflow:hidden;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr>
+                  <td bgcolor="#74acdf" style="background:#74acdf;padding:0;text-align:center;font-size:0;line-height:0;">
+                    <img class="flag-img" src="cid:flag-header" width="600" height="300" alt="" style="display:block;width:100%;height:auto;border:0;" />
+                  </td>
+                </tr>
+                <tr>
+                  <td bgcolor="#74acdf" style="background:#74acdf;text-align:center;padding:14px 24px 20px;">
+                    <div style="color:#1a1a1a;font-size:15px;letter-spacing:0.08em;text-transform:uppercase;font-weight:800;">Tiro Federal Mendoza</div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td style="background:#ffffff;padding:36px 40px;">
+            <td class="email-body" bgcolor="#f5f5f5" style="background:#f5f5f5;padding:32px 36px;">
               ${body}
             </td>
           </tr>
           <tr>
-            <td style="background:#1a1a1a;border-radius:0 0 12px 12px;padding:20px 40px;text-align:center;">
+            <td class="email-footer" style="background:#1a1a1a;border-radius:0 0 12px 12px;padding:18px 36px;text-align:center;">
               <p style="color:rgba(255,255,255,0.4);font-size:11px;margin:0;line-height:1.6;">
                 Correo automatico de <strong style="color:rgba(255,255,255,0.6);">Tiro Federal Mendoza</strong>.<br>
                 Por favor no respondas a este mensaje.
@@ -75,6 +97,10 @@ const sendWelcomeMail = async ({ name, email }) => {
         filename: 'logo-login.png',
         path: path.join(__dirname, '..', 'assets', 'logo-login.png'),
         cid: logoCid
+      }, {
+        filename: 'flag-header.png',
+        path: path.join(__dirname, '..', 'assets', 'flag-header.png'),
+        cid: 'flag-header'
       }]
     });
     console.log(`📧 Mail de bienvenida enviado a ${email}`);
@@ -158,6 +184,10 @@ const sendEventRegistrationMail = async ({ name, email, event, registration }) =
         filename: 'logo-navbar.png',
         path: path.join(__dirname, '..', 'assets', 'logo-navbar.png'),
         cid: logoCid
+      }, {
+        filename: 'flag-header.png',
+        path: path.join(__dirname, '..', 'assets', 'flag-header.png'),
+        cid: 'flag-header'
       }]
     });
     console.log(`📧 Mail de inscripcion enviado a ${email}`);
@@ -238,6 +268,10 @@ const sendScoreMail = async ({ name, email, eventName, stageName, score }) => {
         filename: 'logo-navbar.png',
         path: require('path').join(__dirname, '..', 'assets', 'logo-navbar.png'),
         cid: 'logo-navbar'
+      }, {
+        filename: 'flag-header.png',
+        path: require('path').join(__dirname, '..', 'assets', 'flag-header.png'),
+        cid: 'flag-header'
       }]
     });
     console.log(`📧 Mail de puntuacion enviado a ${email}`);
