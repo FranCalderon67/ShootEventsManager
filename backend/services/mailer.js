@@ -98,8 +98,8 @@ const sendWelcomeMail = async ({ name, email }) => {
         path: path.join(__dirname, '..', 'assets', 'logo-login.png'),
         cid: logoCid
       }, {
-        filename: 'flag-header.png',
-        path: path.join(__dirname, '..', 'assets', 'flag-header.png'),
+        filename: 'flag-header-login.png',
+        path: path.join(__dirname, '..', 'assets', 'flag-header-login.png'),
         cid: 'flag-header'
       }]
     });
