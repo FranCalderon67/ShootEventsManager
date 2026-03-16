@@ -4,6 +4,22 @@ const { auth, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Calculate categoria based on sexo, fechaNacimiento and event date
+const calcCategoria = (sexo, fechaNacimiento, eventDate = new Date()) => {
+  if (!sexo || !fechaNacimiento) return 'General';
+  if (sexo === 'Femenino') return 'Lady';
+  const birth = new Date(fechaNacimiento);
+  const ref = new Date(eventDate);
+  let age = ref.getFullYear() - birth.getFullYear();
+  const m = ref.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
+  if (age < 21) return 'Junior';
+  if (age >= 70) return 'Grand Senior';
+  if (age >= 65) return 'Super Senior';
+  if (age >= 55) return 'Senior';
+  return 'General';
+};
+
 // Get all users (admin only)
 router.get('/', auth, adminOnly, async (req, res) => {
   try {
@@ -24,6 +40,22 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const user = new User({ name, email, password, role: role || 'user' });
     await user.save();
     res.status(201).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update own profile (name, sexo, fechaNacimiento) — must be before /:id
+router.put('/me', auth, async (req, res) => {
+  try {
+    const { name, sexo, fechaNacimiento } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    if (name) user.name = name;
+    if (sexo !== undefined) user.sexo = sexo;
+    if (fechaNacimiento !== undefined) user.fechaNacimiento = fechaNacimiento || null;
+    await user.save();
+    res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -69,3 +101,4 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.calcCategoria = calcCategoria;

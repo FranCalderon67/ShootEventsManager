@@ -3,6 +3,7 @@ const Event = require('../models/Event');
 const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 const User = require('../models/User');
 const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer');
+const { calcCategoria } = require('./users');
 
 const router = express.Router();
 
@@ -120,8 +121,12 @@ router.post('/:id/register', auth, async (req, res) => {
       ? req.body.userId
       : req.user._id.toString();
 
-    const { categoria, division } = req.body;
-    if (!categoria || !division) return res.status(400).json({ message: 'Categoría y división son requeridas' });
+    const { division } = req.body;
+    if (!division) return res.status(400).json({ message: 'La división es requerida' });
+
+    // Auto-calculate categoria based on shooter's profile and event date
+    const shooterUser = await User.findById(userId);
+    const categoria = calcCategoria(shooterUser?.sexo, shooterUser?.fechaNacimiento, event.date);
 
     const { isOC = false } = req.body;
 

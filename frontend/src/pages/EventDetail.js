@@ -35,6 +35,22 @@ export default function EventDetail() {
 
   const isRegistered = (ev) => Boolean(getMyRegistration(ev));
 
+  // Calculate categoria based on user profile and event date
+  const calcCategoria = () => {
+    if (!user?.sexo || !user?.fechaNacimiento) return 'General';
+    if (user.sexo === 'Femenino') return 'Lady';
+    const birth = new Date(user.fechaNacimiento);
+    const ref = event ? new Date(event.date) : new Date();
+    let age = ref.getFullYear() - birth.getFullYear();
+    const m = ref.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
+    if (age < 21) return 'Junior';
+    if (age >= 70) return 'Grand Senior';
+    if (age >= 65) return 'Super Senior';
+    if (age >= 55) return 'Senior';
+    return 'General';
+  };
+
   // End of day in UTC-3 (Argentina) = 03:00 UTC next day
   const endOfDayUTC3 = (date) => {
     const d = new Date(date);
@@ -139,10 +155,10 @@ export default function EventDetail() {
     }
   };
 
-  const handleConfirmRegister = async ({ categoria, division }) => {
+  const handleConfirmRegister = async ({ division }) => {
     setRegistering(true);
     try {
-      await API.post(`/events/${id}/register`, { categoria, division });
+      await API.post(`/events/${id}/register`, { division });
       await fetchEvent();
       setShowRegModal(false);
     } catch (err) {
@@ -223,6 +239,7 @@ export default function EventDetail() {
           existing={myReg}
           loading={registering}
           onConfirm={handleConfirmRegister}
+          categoria={calcCategoria()}
           onCancel={() => setShowRegModal(false)}
         />
       )}
@@ -446,7 +463,7 @@ export default function EventDetail() {
                               <td>{score.miss ?? 0}</td>
                               <td>{score.procedural ?? 0}</td>
                               <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                              <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                             </tr>
                           ))}
                       </tbody>

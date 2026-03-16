@@ -1,40 +1,38 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useGoogleLogin } from '@react-oauth/google';
 import API from '../utils/api';
 
 export default function Login() {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [sexo, setSexo] = useState('');
+  const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
 
   const resetForm = () => {
     setName(''); setEmail(''); setPassword(''); setConfirmPassword(''); setError('');
   };
 
-  const switchMode = (newMode) => {
-    setMode(newMode);
-    resetForm();
-  };
+  const switchMode = (newMode) => { setMode(newMode); resetForm(); };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
       await login(email, password);
       navigate('/events');
     } catch (err) {
       setError(err.response?.data?.message || 'Credenciales incorrectas');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleRegister = async (e) => {
@@ -44,15 +42,41 @@ export default function Login() {
     if (password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     setLoading(true);
     try {
-      await API.post('/auth/register', { name, email, password, role: 'user' });
+      await API.post('/auth/register', { name, email, password, role: 'user', sexo, fechaNacimiento });
       await login(email, password);
       navigate('/events');
     } catch (err) {
       setError(err.response?.data?.message || 'Error al registrarse');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
+
+  const handleGoogleSuccess = async (tokenResponse) => {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      // Exchange access token for ID token via userinfo
+      const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+      }).then(r => r.json());
+
+      const res = await API.post('/auth/google-token', {
+        googleId: userInfo.sub,
+        email: userInfo.email,
+        name: userInfo.name,
+      });
+      localStorage.setItem('token', res.data.token);
+      navigate('/events');
+    } catch (err) {
+      setError('Error al iniciar sesión con Google');
+    } finally { setGoogleLoading(false); }
+  };
+
+  const signInWithGoogle = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => setError('Error al conectar con Google'),
+  });
+
+  const hasGoogleClientId = Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID);
 
   return (
     <div className="login-container">
@@ -75,15 +99,10 @@ export default function Login() {
               key={m}
               onClick={() => switchMode(m)}
               style={{
-                flex: 1,
-                padding: '0.5rem',
-                border: 'none',
+                flex: 1, padding: '0.5rem', border: 'none',
                 borderRadius: 'calc(var(--radius) - 2px)',
-                fontFamily: 'var(--font-display)',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                letterSpacing: '0.04em',
-                cursor: 'pointer',
+                fontFamily: 'var(--font-display)', fontWeight: 700,
+                fontSize: '0.9rem', letterSpacing: '0.04em', cursor: 'pointer',
                 transition: 'all 0.15s',
                 background: mode === m ? 'var(--primary)' : 'transparent',
                 color: mode === m ? '#fff' : 'var(--text-muted)',
@@ -97,6 +116,47 @@ export default function Login() {
         <div className="card">
           <div className="card-body">
             {error && <div className="alert alert-error">{error}</div>}
+
+            {/* Google button */}
+            {hasGoogleClientId && (
+              <>
+                <button
+                  onClick={() => signInWithGoogle()}
+                  disabled={googleLoading}
+                  style={{
+                    width: '100%', padding: '0.75rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+                    background: '#fff', border: '1.5px solid #dadce0',
+                    borderRadius: 'var(--radius)', cursor: 'pointer',
+                    fontFamily: 'var(--font-body)', fontWeight: 600,
+                    fontSize: '0.9rem', color: '#3c4043',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    transition: 'box-shadow 0.2s',
+                    marginBottom: '1rem',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'}
+                >
+                  {googleLoading ? (
+                    <span className="spinner" style={{ borderColor: '#4285f4', borderTopColor: 'transparent' }}></span>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 18 18">
+                      <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                      <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                      <path fill="#FBBC05" d="M4.51 10.53c-.16-.48-.25-.99-.25-1.53s.09-1.05.25-1.53V5.4H1.83a8 8 0 0 0 0 7.2l2.68-2.07z"/>
+                      <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.47c.64-1.87 2.4-3.29 4.48-3.29z"/>
+                    </svg>
+                  )}
+                  {googleLoading ? 'Conectando...' : 'Continuar con Google'}
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>O</span>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                </div>
+              </>
+            )}
 
             {mode === 'login' ? (
               <form onSubmit={handleLogin}>
@@ -117,6 +177,18 @@ export default function Login() {
                 <div className="form-group">
                   <label className="form-label">Nombre completo</label>
                   <input type="text" className="form-control" placeholder="Juan Pérez" value={name} onChange={e => setName(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Sexo</label>
+                  <select className="form-control" value={sexo} onChange={e => setSexo(e.target.value)} required>
+                    <option value="">— Seleccionar —</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha de nacimiento</label>
+                  <input type="date" className="form-control" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email</label>

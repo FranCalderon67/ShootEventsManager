@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const CATEGORIAS = ['Junior', 'General', 'Senior', 'Semi Senior', 'Super Senior', 'Lady'];
+const CATEGORIAS = ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'];
 const DIVISIONES = ['Custom', 'Stock', 'Optic'];
 
 export default function RegistrationModal({ onConfirm, onCancel, loading, existing }) {
@@ -20,37 +20,24 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
         </div>
         <div className="modal-body">
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-            Seleccioná tu categoría y división para inscribirte.
+            Seleccioná tu división para inscribirte.
           </p>
 
-          {/* Categoría */}
-          <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              {CATEGORIAS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCategoria(c)}
-                  style={{
-                    padding: '0.625rem',
-                    border: `2px solid ${categoria === c ? 'var(--primary)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius)',
-                    background: categoria === c ? 'var(--primary)' : '#fff',
-                    color: categoria === c ? '#fff' : 'var(--text)',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    textAlign: 'center',
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
+          {/* Categoría asignada automáticamente */}
+          {categoria && (
+            <div className="form-group">
+              <label className="form-label">Categoría asignada</label>
+              <div style={{
+                padding: '0.75rem 1rem', borderRadius: 'var(--radius)',
+                background: '#f0fdf4', border: '2px solid var(--primary)',
+                display: 'flex', alignItems: 'center', gap: '0.5rem'
+              }}>
+                <span style={{ fontSize: '1rem' }}>🎯</span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1rem' }}>{categoria}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>Calculada automáticamente</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* División */}
           <div className="form-group">
@@ -89,7 +76,7 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={loading || !categoria || !division}
+            disabled={loading || !division}
           >
             {loading ? <><span className="spinner"></span> Inscribiendo...</> : 'Confirmar inscripción'}
           </button>

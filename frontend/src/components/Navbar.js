@@ -22,7 +22,7 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <Link to="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <img src="/logo-navbar.png" alt="Logo" style={{ height: '30px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
+          <img src="/logo-navbar.png" alt="Logo" style={{ height: '30px', width: 'auto', objectFit: 'contain', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
           <span style={{ whiteSpace: 'nowrap' }}>TIRO <span>DINÁMICO</span></span>
         </Link>
 
@@ -45,7 +45,9 @@ export default function Navbar() {
           >
             📄 Reglamento
           </a>
-          <span className="nav-username">{user?.name}</span>
+          <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
+            {user?.name}
+          </Link>
           <button
             onClick={handleLogout}
             className="btn btn-outline btn-sm"
@@ -73,7 +75,7 @@ export default function Navbar() {
           <div className="mobile-menu" onClick={e => e.stopPropagation()}>
             <div className="mobile-menu-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                <img src="/logo-navbar.png" alt="Logo" style={{ height: '28px', width: 'auto' }} onError={e => e.target.style.display = 'none'} />
+                <img src="/logo-navbar.png" alt="Logo" style={{ height: '28px', width: 'auto' }} onError={e => e.target.style.display='none'} />
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
                   TIRO <span style={{ color: 'var(--accent)' }}>DINÁMICO</span>
                 </span>
@@ -115,6 +117,15 @@ export default function Navbar() {
                 <span className="nav-badge" style={{ marginLeft: 'auto' }}>ADM</span>
               </Link>
             )}
+
+            <Link
+              to="/profile"
+              className={`mobile-nav-link ${isActive('/profile') ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              <span className="mobile-nav-icon">👤</span>
+              Mi Perfil
+            </Link>
 
             <div className="mobile-menu-divider" />
 
