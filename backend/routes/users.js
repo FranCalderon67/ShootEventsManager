@@ -53,7 +53,14 @@ router.put('/me', auth, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     if (name) user.name = name;
     if (sexo !== undefined) user.sexo = sexo;
-    if (fechaNacimiento !== undefined) user.fechaNacimiento = fechaNacimiento || null;
+    if (fechaNacimiento !== undefined) {
+      if (!fechaNacimiento) {
+        user.fechaNacimiento = null;
+      } else {
+        const [y, m, d] = fechaNacimiento.toString().slice(0, 10).split('-');
+        user.fechaNacimiento = new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
+      }
+    }
     await user.save();
     res.json(user);
   } catch (error) {

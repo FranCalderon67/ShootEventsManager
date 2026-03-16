@@ -147,8 +147,9 @@ export default function EventDetail() {
   const handleAdminEditReg = async ({ categoria, division }) => {
     if (!editingReg) return;
     try {
-      await API.post(`/events/${id}/register`, { userId: editingReg.userId, categoria, division });
+      await API.put(`/events/${id}/registrations/${editingReg.userId}/categoria`, { categoria, division });
       await fetchEvent();
+      await fetchRankings();
       setEditingReg(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Error al actualizar inscripción');
@@ -197,17 +198,57 @@ export default function EventDetail() {
 
   const currentStage = event.stages.find(s => s._id === activeStage);
 
-  // Admin edit registration modal
-  const adminEditModal = editingReg && (
-    <RegistrationModal
-      existing={editingReg}
-      onConfirm={handleAdminEditReg}
-      onCancel={() => setEditingReg(null)}
-      loading={false}
-    />
-  );
   const canScore = isAdmin || isOC;
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
+
+  const CATEGORIAS = ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'];
+  const DIVISIONES = ['Custom', 'Stock', 'Optic'];
+
+  // Admin edit registration modal — full control over categoria and division
+  const adminEditModal = editingReg && (
+    <div className="modal-overlay">
+      <div className="modal" style={{ borderRadius: 'var(--radius-lg)', maxWidth: '420px', margin: '1rem' }}>
+        <div className="modal-header">
+          <div className="modal-title">✏️ Editar inscripción</div>
+          <button className="modal-close" onClick={() => setEditingReg(null)}>✕</button>
+        </div>
+        <div className="modal-body">
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+            Modificando inscripción de <strong>{allShooters.find(s => s._id === editingReg.userId)?.name}</strong>
+          </p>
+          <div className="form-group">
+            <label className="form-label">Categoría</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              {CATEGORIAS.map(c => (
+                <button key={c} type="button" onClick={() => setEditingReg({ ...editingReg, categoria: c })}
+                  style={{ padding: '0.625rem', border: `2px solid ${editingReg.categoria === c ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: editingReg.categoria === c ? 'var(--primary)' : '#fff', color: editingReg.categoria === c ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">División</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+              {DIVISIONES.map(d => (
+                <button key={d} type="button" onClick={() => setEditingReg({ ...editingReg, division: d })}
+                  style={{ padding: '0.625rem', border: `2px solid ${editingReg.division === d ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: editingReg.division === d ? 'var(--accent)' : '#fff', color: editingReg.division === d ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={() => setEditingReg(null)}>Cancelar</button>
+          <button className="btn btn-primary" onClick={() => handleAdminEditReg({ categoria: editingReg.categoria, division: editingReg.division })}
+            disabled={!editingReg.categoria || !editingReg.division}>
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  );
   const myReg = getMyRegistration(event);
   const visibleRankings = isAdmin ? rankings : rankings.filter(r => r.shooter._id === user._id);
 

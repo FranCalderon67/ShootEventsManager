@@ -19,7 +19,12 @@ router.post('/register', async (req, res) => {
     const adminCount = await User.countDocuments({ role: 'admin' });
     const userRole = (role === 'admin' && adminCount === 0) ? 'admin' : 'user';
 
-    const user = new User({ name, email, password, role: userRole, sexo: sexo || null, fechaNacimiento: fechaNacimiento || null });
+    let fechaNac = null;
+    if (fechaNacimiento) {
+      const [y, m, d] = fechaNacimiento.toString().slice(0, 10).split('-');
+      fechaNac = new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
+    }
+    const user = new User({ name, email, password, role: userRole, sexo: sexo || null, fechaNacimiento: fechaNac });
     await user.save();
 
     // Send welcome email (non-blocking)

@@ -167,6 +167,30 @@ router.post('/:id/register', auth, async (req, res) => {
   }
 });
 
+// Admin override: update categoria/division for a registration (bypasses deadline)
+router.put('/:id/registrations/:userId/categoria', auth, adminOnly, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+
+    const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
+    if (!reg) return res.status(404).json({ message: 'Tirador no inscripto en este evento' });
+
+    if (req.body.categoria) reg.categoria = req.body.categoria;
+    if (req.body.division) reg.division = req.body.division;
+    await event.save();
+
+    const populated = await Event.findById(req.params.id)
+      .populate('registrations.user', 'name email')
+      .populate('squads.members', 'name email')
+      .populate('stages.scores.shooter', 'name email')
+      .populate('createdBy', 'name');
+    res.json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Unregister user from event
 router.delete('/:id/register/:userId', auth, async (req, res) => {
   try {
