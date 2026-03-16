@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ScoreEntry from '../components/ScoreEntry';
+import ResultsTab from '../components/ResultsTab';
 import RegistrationModal from '../components/RegistrationModal';
 
 export default function EventDetail() {
@@ -29,6 +30,7 @@ export default function EventDetail() {
   const [editingSquadId, setEditingSquadId] = useState(null);
   const [addMemberIds, setAddMemberIds] = useState([]);
   const [showRegModal, setShowRegModal] = useState(false);
+  const [resultsTab, setResultsTab] = useState('general');
   const [registering, setRegistering] = useState(false);
   const [editingReg, setEditingReg] = useState(null); // { userId, categoria, division } for admin edit
 
@@ -262,7 +264,6 @@ export default function EventDetail() {
     </div>
   );
   const myReg = getMyRegistration(event);
-  const visibleRankings = isAdmin ? rankings : rankings.filter(r => r.shooter._id === user._id);
 
   // Shooters filtered by squad selection for score entry
   const shootersForEntry = selectedSquadFilter === 'all'
@@ -384,7 +385,7 @@ export default function EventDetail() {
           👥 Escuadras
         </button>
         <button className={`tab ${activeTab === 'rankings' ? 'active' : ''}`} onClick={() => setActiveTab('rankings')}>
-          🏆 Clasificación
+          🏆 Resultados
         </button>
       </div>
 
@@ -755,100 +756,19 @@ export default function EventDetail() {
         </div>
       )}
 
-      {/* ==================== RANKINGS TAB ==================== */}
+      {/* ==================== RESULTS TAB ==================== */}
       {activeTab === 'rankings' && (
-        <div>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">🏆 Clasificación General</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Menor puntaje = mejor posición</div>
-            </div>
-            {visibleRankings.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">🏆</div>
-                <div className="empty-state-text">No hay resultados disponibles aún</div>
-              </div>
-            ) : (
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Tirador</th>
-                      <th>Cat.</th>
-                      <th>Div.</th>
-                      {event.stages.map((s, i) => <th key={s._id}>Et. {i + 1}</th>)}
-                      <th>Promedio</th>
-                    </tr>
-
-                  </thead>
-                  <tbody>
-                    {visibleRankings.map((r, i) => {
-                      const reg = event.registrations?.find(reg => (reg.user?._id || reg.user) === r.shooter._id);
-                      const rowDq = r.dq;
-                      // Count non-DQ entries for medal positions
-                      const nonDqIndex = visibleRankings.filter(x => !x.dq).indexOf(r);
-                      return (
-                        <tr key={r.shooter._id} style={{
-                          background: rowDq ? '#fef2f2' : r.shooter._id === user._id ? 'rgba(42,125,79,0.05)' : '',
-                          opacity: rowDq ? 0.8 : 1
-                        }}>
-                          <td>
-                            {rowDq ? (
-                              <span style={{ fontSize: '1rem' }}>🟥</span>
-                            ) : (
-                              <span className={`rank ${nonDqIndex < 3 ? `rank-${nonDqIndex + 1}` : ''}`}>
-                                {nonDqIndex < 3 ? ['🥇', '🥈', '🥉'][nonDqIndex] : nonDqIndex + 1}
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <strong style={{ color: rowDq ? '#ef4444' : 'inherit', textDecoration: rowDq ? 'line-through' : 'none' }}>
-                              {r.shooter.name}
-                            </strong>
-                            {r.shooter._id === user._id && (
-                              <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 600 }}>YO</span>
-                            )}
-                            {rowDq && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#ef4444', fontWeight: 700 }}>DQ</span>}
-                          </td>
-                          <td>
-                            <span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span>
-                            {isAdmin && !rowDq && (
-                              <button
-                                onClick={() => setEditingReg({ userId: r.shooter._id, categoria: reg?.categoria, division: reg?.division })}
-                                style={{ marginLeft: '0.3rem', fontSize: '0.65rem', padding: '1px 6px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', color: '#6b7280' }}
-                              >✏️</button>
-                            )}
-                          </td>
-                          <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{reg?.division || '—'}</span></td>
-                          {event.stages.map(s => (
-                            <td key={s._id}>
-                              {r.stageScores[s._id] === 'DQ' ? (
-                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>DQ</span>
-                              ) : r.stageScores[s._id] !== undefined ? (
-                                parseFloat(r.stageScores[s._id]).toFixed(2)
-                              ) : rowDq ? (
-                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>DQ</span>
-                              ) : (
-                                <span style={{ color: 'var(--text-light)' }}>—</span>
-                              )}
-                            </td>
-                          ))}
-                          <td>
-                            <strong style={{ color: rowDq ? '#ef4444' : nonDqIndex === 0 ? 'var(--gold)' : 'var(--text)' }}>
-                              {rowDq ? 'DQ' : r.average !== null ? r.average.toFixed(2) : '—'}
-                            </strong>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+        <ResultsTab
+          event={event}
+          rankings={rankings}
+          user={user}
+          isAdmin={isAdmin}
+          resultsTab={resultsTab}
+          setResultsTab={setResultsTab}
+          setEditingReg={setEditingReg}
+        />
       )}
+
     </div>
   );
 }
