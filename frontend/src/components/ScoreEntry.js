@@ -117,6 +117,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
   const [manualDQ, setManualDQ] = useState(false);
   const [dqReason, setDqReason] = useState('');
   const [showDQModal, setShowDQModal] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [time, setTime] = useState('');
 
   const warningsDQ = warnings >= 2;
@@ -131,7 +132,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
     if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) setTime(val);
   };
 
-  const handleSave = () => {
+  const handleContinue = () => {
     if (!selectedShooter) return alert('Seleccioná un tirador');
     if (!isDQ && (time === '' || isNaN(parseFloat(time)))) return alert('Ingresá el tiempo');
     if (impactosPuntuables > 0 && !isDQ) {
@@ -140,6 +141,10 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
         return alert(`Los impactos (${totalImpactos}) superan el máximo puntuable (${impactosPuntuables})`);
       }
     }
+    setShowSummary(true);
+  };
+
+  const handleSave = () => {
     const finalTime = parseFloat(time) || 0;
     onSave({
       shooter: selectedShooter, a, b, c, noShoot, miss, procedural,
@@ -173,6 +178,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
   };
 
   const availableShooters = shooters.filter(s => !scoredShooterIds.includes(s._id));
+  const selectedShooterName = shooters.find(s => s._id === selectedShooter)?.name || '';
   const dqShooters = shooters.filter(s => dqShooterIds.includes(s._id) && !scoredShooterIds.filter(id => !dqShooterIds.includes(id)).includes(s._id));
   const scoredShooters = shooters.filter(s => scoredShooterIds.includes(s._id) && !dqShooterIds.includes(s._id));
 
@@ -367,13 +373,115 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
 
         <button
           className="btn btn-save"
-          onClick={handleSave}
+          onClick={handleContinue}
           disabled={saving || !selectedShooter || scoredShooterIds.includes(selectedShooter)}
           style={isDQ ? { background: '#dc2626', borderColor: '#b91c1c' } : {}}
         >
-          {saving ? <><span className="spinner"></span> Guardando...</> : isDQ ? '🟥 Guardar DQ' : '💾 Guardar'}
+          {isDQ ? '🟥 Continuar' : '➡️ Continuar'}
         </button>
       </div>
+
+      {/* Summary Modal */}
+      {showSummary && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg, #f4f1ec)', border: `2px solid ${isDQ ? '#dc2626' : '#2a7d4f'}`, borderRadius: '12px', padding: '1.5rem', width: '100%', maxWidth: '440px', boxShadow: '0 8px 40px rgba(0,0,0,0.4)' }}>
+
+            {/* Header */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ fontWeight: 900, fontSize: '1.2rem', color: isDQ ? '#dc2626' : 'var(--text, #1a1a1a)', marginBottom: '0.3rem', letterSpacing: '-0.01em' }}>
+                {isDQ ? '🟥 Resumen — Descalificado' : '📋 Resumen de puntuación'}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #6b7280)', fontWeight: 700 }}>{selectedShooterName}</div>
+            </div>
+
+            {/* Score detail */}
+            {!isDQ && (
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                {/* Desktop: horizontal table */}
+                <table className="summary-table-desktop" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr>
+                      {['Tiempo', 'A', 'B', 'C', 'Miss', 'NS', 'F.P.', 'Total'].map(h => (
+                        <th key={h} style={{ color: '#6b7280', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', padding: '0 0.5rem 0.625rem', textAlign: 'center', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {[
+                        { val: `${timeNum.toFixed(2)}s`, color: '#111827' },
+                        { val: a, color: '#16a34a' },
+                        { val: b, color: '#ca8a04' },
+                        { val: c, color: '#d97706' },
+                        { val: miss, color: '#dc2626' },
+                        { val: noShoot, color: '#dc2626' },
+                        { val: procedural, color: '#d97706' },
+                        { val: total.toFixed(2), color: '#2a7d4f' },
+                      ].map(({ val, color }, i) => (
+                        <td key={i} style={{ color, fontWeight: 900, textAlign: 'center', padding: '0.375rem 0.5rem', fontSize: '1rem' }}>{val}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+                {/* Mobile: vertical list */}
+                <div className="summary-list-mobile">
+                  {[
+                    { label: 'Tiempo', val: `${timeNum.toFixed(2)}s`, color: '#111827' },
+                    { label: 'A', val: a, color: '#16a34a' },
+                    { label: 'B', val: b, color: '#ca8a04' },
+                    { label: 'C', val: c, color: '#d97706' },
+                    { label: 'Miss', val: miss, color: '#dc2626' },
+                    { label: 'No Shoot', val: noShoot, color: '#dc2626' },
+                    { label: 'Falta Proc.', val: procedural, color: '#d97706' },
+                    { label: 'Total', val: total.toFixed(2), color: '#2a7d4f' },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 900, color }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+                {warnings > 0 && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.82rem', color: '#dc2626', fontWeight: 700 }}>
+                    ⚠️ {warnings} advertencia{warnings > 1 ? 's' : ''}{warningsDQ ? ' — DQ por advertencias' : ''}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isDQ && dqReason && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#dc2626', fontWeight: 700, fontStyle: 'italic' }}>
+                📋 {dqReason}
+              </div>
+            )}
+
+            {/* Total highlight */}
+            <div style={{ background: isDQ ? '#fef2f2' : '#f0fdf4', border: `2px solid ${isDQ ? '#dc2626' : '#2a7d4f'}`, borderRadius: '8px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: isDQ ? '#dc2626' : '#2a7d4f', fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</span>
+              <span style={{ fontWeight: 900, fontSize: '1.75rem', color: isDQ ? '#dc2626' : '#2a7d4f' }}>
+                {isDQ ? 'DQ' : total.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setShowSummary(false)}
+                style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer' }}
+              >
+                ← Volver
+              </button>
+              <button
+                onClick={() => { setShowSummary(false); handleSave(); }}
+                disabled={saving}
+                style={{ flex: 1, padding: '0.75rem', background: isDQ ? '#dc2626' : '#2a7d4f', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer', letterSpacing: '0.02em' }}
+              >
+                {saving ? 'Guardando...' : isDQ ? '🟥 Confirmar DQ' : '💾 Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
