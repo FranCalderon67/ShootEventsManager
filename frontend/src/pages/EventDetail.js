@@ -453,9 +453,38 @@ export default function EventDetail() {
               <div className="empty-state-icon">🏁</div>
               <div className="empty-state-text">No hay etapas creadas aún</div>
             </div>
-          ) : !currentStage ? null : (
+          ) : !currentStage ? null : !canScore ? (
+            /* Tirador: solo ve el PDF */
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">📄 {currentStage.name}</div>
+              </div>
+              <div className="card-body" style={{ textAlign: 'center', padding: '2rem' }}>
+                {currentStage.archivoPdf ? (
+                  <>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
+                      Descargá el archivo con el detalle de esta etapa.
+                    </p>
+                    <a
+                      href={currentStage.archivoPdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary"
+                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      📄 Descargar archivo de etapa
+                    </a>
+                  </>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    No hay archivo disponible para esta etapa.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
             <>
-            {/* Stage info bar */}
+            {/* Stage info bar — admin/OC only */}
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
               {currentStage.cartones > 0 && (
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
