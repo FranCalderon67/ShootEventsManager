@@ -27,6 +27,7 @@ export default function EventDetail() {
   const [addMemberIds, setAddMemberIds] = useState([]);
   const [showRegModal, setShowRegModal] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [editingReg, setEditingReg] = useState(null); // { userId, categoria, division } for admin edit
 
   // ---- helpers ----
   const getMyRegistration = (ev) =>
@@ -34,18 +35,20 @@ export default function EventDetail() {
 
   const isRegistered = (ev) => Boolean(getMyRegistration(ev));
 
+  // End of day in UTC-3 (Argentina) = 03:00 UTC next day
+  const endOfDayUTC3 = (date) => {
+    const d = new Date(date);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
+  };
+
   const isLocked = (ev) => {
     if (!ev) return false;
-    const d = new Date(ev.date);
-    d.setHours(23, 59, 59, 999);
-    return new Date() > d;
+    return Date.now() > endOfDayUTC3(ev.date);
   };
 
   const isDeadlinePassed = (ev) => {
     if (!ev?.registrationDeadline) return false;
-    const d = new Date(ev.registrationDeadline);
-    d.setHours(23, 59, 59, 999);
-    return new Date() > d;
+    return Date.now() > endOfDayUTC3(ev.registrationDeadline);
   };
 
   const getAssignedIds = (excludeSquadId = null) => {
@@ -125,6 +128,17 @@ export default function EventDetail() {
     } catch (err) { alert(err.response?.data?.message || 'Error al actualizar escuadra'); }
   };
 
+  const handleAdminEditReg = async ({ categoria, division }) => {
+    if (!editingReg) return;
+    try {
+      await API.post(`/events/${id}/register`, { userId: editingReg.userId, categoria, division });
+      await fetchEvent();
+      setEditingReg(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar inscripción');
+    }
+  };
+
   const handleConfirmRegister = async ({ categoria, division }) => {
     setRegistering(true);
     try {
@@ -166,6 +180,16 @@ export default function EventDetail() {
   if (!event) return <div className="page"><div className="alert alert-error">Evento no encontrado</div></div>;
 
   const currentStage = event.stages.find(s => s._id === activeStage);
+
+  // Admin edit registration modal
+  const adminEditModal = editingReg && (
+    <RegistrationModal
+      existing={editingReg}
+      onConfirm={handleAdminEditReg}
+      onCancel={() => setEditingReg(null)}
+      loading={false}
+    />
+  );
   const canScore = isAdmin || isOC;
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
   const myReg = getMyRegistration(event);
@@ -192,6 +216,8 @@ export default function EventDetail() {
 
   return (
     <div className="page">
+      {adminEditModal}
+
       {showRegModal && (
         <RegistrationModal
           existing={myReg}
@@ -230,19 +256,28 @@ export default function EventDetail() {
                   : `📅 Cierre inscripciones: ${new Date(event.registrationDeadline).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`}
               </span>
             )}
-            {event.status !== 'finished' && !isDeadlinePassed(event) && (
+            {event.status !== 'finished' && (
               myReg ? (
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span className="badge badge-active">✓ Inscripto</span>
                   <span className="badge" style={{ background: '#f3f4f6', color: '#374151' }}>{myReg.categoria}</span>
                   <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>{myReg.division}</span>
-                  <button className="btn btn-outline btn-sm" onClick={() => setShowRegModal(true)}>Cambiar</button>
-                  <button className="btn btn-danger btn-sm" onClick={handleUnregister}>Cancelar</button>
+                  {!isDeadlinePassed(event) && (
+                    <button className="btn btn-outline btn-sm" onClick={() => setShowRegModal(true)}>Cambiar</button>
+                  )}
+                  {!isDeadlinePassed(event) && (
+                    <button className="btn btn-danger btn-sm" onClick={handleUnregister}>Cancelar</button>
+                  )}
+                  {isDeadlinePassed(event) && !isAdmin && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒 Cambios solo por admin</span>
+                  )}
                 </div>
               ) : (
-                <button className="btn btn-primary btn-sm" onClick={() => setShowRegModal(true)}>
-                  + Inscribirme al evento
-                </button>
+                !isDeadlinePassed(event) && (
+                  <button className="btn btn-primary btn-sm" onClick={() => setShowRegModal(true)}>
+                    + Inscribirme al evento
+                  </button>
+                )
               )
             )}
             {isAdmin && !isLocked(event) && (
@@ -411,7 +446,7 @@ export default function EventDetail() {
                               <td>{score.miss ?? 0}</td>
                               <td>{score.procedural ?? 0}</td>
                               <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                             </tr>
                           ))}
                       </tbody>
@@ -620,7 +655,15 @@ export default function EventDetail() {
                             )}
                             {rowDq && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#ef4444', fontWeight: 700 }}>DQ</span>}
                           </td>
-                          <td><span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span></td>
+                          <td>
+                            <span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{reg?.categoria || '—'}</span>
+                            {isAdmin && !rowDq && (
+                              <button
+                                onClick={() => setEditingReg({ userId: r.shooter._id, categoria: reg?.categoria, division: reg?.division })}
+                                style={{ marginLeft: '0.3rem', fontSize: '0.65rem', padding: '1px 6px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', color: '#6b7280' }}
+                              >✏️</button>
+                            )}
+                          </td>
                           <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{reg?.division || '—'}</span></td>
                           {event.stages.map(s => (
                             <td key={s._id}>
