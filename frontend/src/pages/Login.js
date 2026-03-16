@@ -1,8 +1,50 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useGoogleLogin } from '@react-oauth/google';
 import API from '../utils/api';
+
+// Separate component so useGoogleLogin hook is only called when clientId exists
+function GoogleButton({ onSuccess, onError, loading }) {
+  const { useGoogleLogin } = require('@react-oauth/google');
+  const signIn = useGoogleLogin({ onSuccess, onError });
+  return (
+    <>
+      <button
+        onClick={() => signIn()}
+        disabled={loading}
+        style={{
+          width: '100%', padding: '0.75rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+          background: '#fff', border: '1.5px solid #dadce0',
+          borderRadius: 'var(--radius)', cursor: 'pointer',
+          fontFamily: 'var(--font-body)', fontWeight: 600,
+          fontSize: '0.9rem', color: '#3c4043',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+          transition: 'box-shadow 0.2s', marginBottom: '1rem',
+        }}
+        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'}
+        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'}
+      >
+        {loading ? (
+          <span className="spinner" style={{ borderColor: '#4285f4', borderTopColor: 'transparent' }}></span>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z" />
+            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.83v2.07A8 8 0 0 0 8.98 17z" />
+            <path fill="#FBBC05" d="M4.51 10.53c-.16-.48-.25-.99-.25-1.53s.09-1.05.25-1.53V5.4H1.83a8 8 0 0 0 0 7.2l2.68-2.07z" />
+            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.47c.64-1.87 2.4-3.29 4.48-3.29z" />
+          </svg>
+        )}
+        {loading ? 'Conectando...' : 'Continuar con Google'}
+      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>O</span>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+      </div>
+    </>
+  );
+}
 
 export default function Login() {
   const [mode, setMode] = useState('login');
@@ -71,11 +113,6 @@ export default function Login() {
     } finally { setGoogleLoading(false); }
   };
 
-  const signInWithGoogle = useGoogleLogin({
-    onSuccess: handleGoogleSuccess,
-    onError: () => setError('Error al conectar con Google'),
-  });
-
   const hasGoogleClientId = Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID);
 
   return (
@@ -86,7 +123,7 @@ export default function Login() {
             src="/logo-login.png"
             alt="Tiro Federal Mendoza"
             style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '0.75rem' }}
-            onError={e => e.target.style.display='none'}
+            onError={e => e.target.style.display = 'none'}
           />
           <div className="login-title">TIRO FEDERAL MENDOZA</div>
           <div className="login-subtitle">Sistema de Gestión de Eventos</div>
@@ -119,43 +156,11 @@ export default function Login() {
 
             {/* Google button */}
             {hasGoogleClientId && (
-              <>
-                <button
-                  onClick={() => signInWithGoogle()}
-                  disabled={googleLoading}
-                  style={{
-                    width: '100%', padding: '0.75rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
-                    background: '#fff', border: '1.5px solid #dadce0',
-                    borderRadius: 'var(--radius)', cursor: 'pointer',
-                    fontFamily: 'var(--font-body)', fontWeight: 600,
-                    fontSize: '0.9rem', color: '#3c4043',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    transition: 'box-shadow 0.2s',
-                    marginBottom: '1rem',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'}
-                >
-                  {googleLoading ? (
-                    <span className="spinner" style={{ borderColor: '#4285f4', borderTopColor: 'transparent' }}></span>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 18 18">
-                      <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                      <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.83v2.07A8 8 0 0 0 8.98 17z"/>
-                      <path fill="#FBBC05" d="M4.51 10.53c-.16-.48-.25-.99-.25-1.53s.09-1.05.25-1.53V5.4H1.83a8 8 0 0 0 0 7.2l2.68-2.07z"/>
-                      <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.47c.64-1.87 2.4-3.29 4.48-3.29z"/>
-                    </svg>
-                  )}
-                  {googleLoading ? 'Conectando...' : 'Continuar con Google'}
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>O</span>
-                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                </div>
-              </>
+              <GoogleButton
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Error al conectar con Google')}
+                loading={googleLoading}
+              />
             )}
 
             {mode === 'login' ? (
