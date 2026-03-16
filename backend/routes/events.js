@@ -6,6 +6,21 @@ const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer
 
 const router = express.Router();
 
+// Parse date string as noon UTC (avoids timezone day-shift for UTC-3 Argentina)
+const parseLocalDate = (dateStr) => {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.toString().slice(0, 10).split('-');
+  return new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
+};
+
+// Event is locked after end of day in Argentina (UTC-3) = 03:00 UTC next day
+const isEventLocked = (event) => {
+  const d = new Date(event.date);
+  const endOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
+  console.log(`[isEventLocked] event.date=${event.date} endOfDay=${new Date(endOfDay).toISOString()} now=${new Date().toISOString()} locked=${Date.now() > endOfDay}`);
+  return Date.now() > endOfDay;
+};
+
 // Get all events
 router.get('/', auth, async (req, res) => {
   try {
@@ -46,20 +61,16 @@ router.get('/:id', auth, async (req, res) => {
 // Create event (admin only)
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
-    const event = new Event({ ...req.body, createdBy: req.user._id });
+    const body = { ...req.body, createdBy: req.user._id };
+    if (body.date) body.date = parseLocalDate(body.date);
+    if (body.registrationDeadline) body.registrationDeadline = parseLocalDate(body.registrationDeadline);
+    const event = new Event(body);
     await event.save();
     res.status(201).json(event);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
-
-// Helper: check if event is locked (date has passed)
-const isEventLocked = (event) => {
-  const eventDate = new Date(event.date);
-  eventDate.setHours(23, 59, 59, 999);
-  return new Date() > eventDate;
-};
 
 // Update event (admin only)
 router.put('/:id', auth, adminOnly, async (req, res) => {
@@ -69,7 +80,10 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     if (isEventLocked(event)) {
       return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
     }
-    Object.assign(event, req.body);
+    const updates = { ...req.body };
+    if (updates.date) updates.date = parseLocalDate(updates.date);
+    if (updates.registrationDeadline) updates.registrationDeadline = parseLocalDate(updates.registrationDeadline);
+    Object.assign(event, updates);
     await event.save();
     res.json(event);
   } catch (error) {
@@ -95,9 +109,9 @@ router.post('/:id/register', auth, async (req, res) => {
     if (event.status === 'finished') return res.status(400).json({ message: 'El evento ya finalizó' });
 
     if (event.registrationDeadline) {
-      const deadline = new Date(event.registrationDeadline);
-      deadline.setHours(23, 59, 59, 999);
-      if (new Date() > deadline) {
+      const dl = new Date(event.registrationDeadline);
+      const deadlineEnd = Date.UTC(dl.getUTCFullYear(), dl.getUTCMonth(), dl.getUTCDate() + 1, 3, 0, 0, 0);
+      if (Date.now() > deadlineEnd) {
         return res.status(400).json({ message: 'El plazo de inscripción ya cerró' });
       }
     }
@@ -396,7 +410,9 @@ router.get('/:id/rankings', auth, async (req, res) => {
 
     // Build map of manually DQ'd shooters from registrations
     const manualDqIds = new Set(
-      event.registrations.filter(r => r.dq).map(r => r.user._id?.toString() || r.user.toString())
+      event.registrations
+        .filter(r => r.dq && r.user)
+        .map(r => r.user._id?.toString() || r.user.toString())
     );
 
     const shooterMap = {};
@@ -405,6 +421,7 @@ router.get('/:id/rankings', auth, async (req, res) => {
     event.registrations.forEach(reg => {
       if (!reg.user) return;
       const id = reg.user._id?.toString() || reg.user.toString();
+      if (!id) return;
       if (!shooterMap[id]) {
         shooterMap[id] = {
           shooter: reg.user,
@@ -417,8 +434,9 @@ router.get('/:id/rankings', auth, async (req, res) => {
     });
 
     event.stages.forEach(stage => {
-      stage.scores.filter(s => s.saved).forEach(score => {
-        const id = score.shooter._id.toString();
+      stage.scores.filter(s => s.saved && s.shooter).forEach(score => {
+        const id = score.shooter._id?.toString() || score.shooter.toString();
+        if (!id) return;
         if (!shooterMap[id]) {
           shooterMap[id] = {
             shooter: score.shooter,
