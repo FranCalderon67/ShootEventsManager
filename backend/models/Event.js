@@ -25,6 +25,10 @@ scoreSchema.pre('save', function(next) {
 const stageSchema = new mongoose.Schema({
   name: { type: String, required: true },
   order: { type: Number, required: true },
+  cartones: { type: Number, default: 0 },
+  metales: { type: Number, default: 0 },
+  impactosPuntuables: { type: Number, default: 0 },
+  archivoPdf: { type: String, default: null },   // Cloudinary URL
   scores: [scoreSchema]
 });
 

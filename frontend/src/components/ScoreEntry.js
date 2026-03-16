@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function Counter({ label, labelClass, value, onChange, multiplier, description, color, disabled }) {
+function Counter({ label, labelClass, value, onChange, multiplier, description, color, disabled, disabledPlus }) {
   const subtotal = value * multiplier;
   return (
     <div className="score-row">
@@ -11,7 +11,7 @@ function Counter({ label, labelClass, value, onChange, multiplier, description, 
       <div className="score-counter">
         <button className="btn btn-red" onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled || value === 0}>−</button>
         <span className="score-value">{value}</span>
-        <button className="btn btn-green" onClick={() => onChange(value + 1)} disabled={disabled}>+</button>
+        <button className="btn btn-green" onClick={() => onChange(value + 1)} disabled={disabled || disabledPlus}>+</button>
       </div>
       <div className="score-subtotal">{multiplier > 0 ? `+${subtotal}` : '—'}</div>
     </div>
@@ -105,7 +105,7 @@ function DQModal({ onConfirm, onCancel }) {
   );
 }
 
-export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, onSave, saving }) {
+export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, onSave, saving, impactosPuntuables = 0 }) {
   const [selectedShooter, setSelectedShooter] = useState('');
   const [a, setA] = useState(0);
   const [b, setB] = useState(0);
@@ -134,6 +134,12 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
   const handleSave = () => {
     if (!selectedShooter) return alert('Seleccioná un tirador');
     if (!isDQ && (time === '' || isNaN(parseFloat(time)))) return alert('Ingresá el tiempo');
+    if (impactosPuntuables > 0 && !isDQ) {
+      const totalImpactos = a + b + c + miss;
+      if (totalImpactos > impactosPuntuables) {
+        return alert(`Los impactos (${totalImpactos}) superan el máximo puntuable (${impactosPuntuables})`);
+      }
+    }
     const finalTime = parseFloat(time) || 0;
     onSave({
       shooter: selectedShooter, a, b, c, noShoot, miss, procedural,
@@ -266,10 +272,23 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
         <hr className="divider" />
 
         {/* Impact counters */}
-        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 600 }}>Impactos</div>
-        <Counter label="A" labelClass="label-a" value={a} onChange={setA} multiplier={0} description="× 0 pts" />
-        <Counter label="B" labelClass="label-b" value={b} onChange={setB} multiplier={1} description="× 1 pt" />
-        <Counter label="C" labelClass="label-c" value={c} onChange={setC} multiplier={3} description="× 3 pts" />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>Impactos</div>
+          {impactosPuntuables > 0 && (() => {
+            const totalImpactos = a + b + c + miss;
+            const over = totalImpactos > impactosPuntuables;
+            const exact = totalImpactos === impactosPuntuables;
+            return (
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: over ? '#ef4444' : exact ? '#2a7d4f' : 'var(--text-muted)' }}>
+                {totalImpactos} / {impactosPuntuables}
+                {over && ' ⚠️'}{exact && ' ✓'}
+              </div>
+            );
+          })()}
+        </div>
+        <Counter label="A" labelClass="label-a" value={a} onChange={setA} multiplier={0} description="× 0 pts — incluye metales" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
+        <Counter label="B" labelClass="label-b" value={b} onChange={setB} multiplier={1} description="× 1 pt" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
+        <Counter label="C" labelClass="label-c" value={c} onChange={setC} multiplier={3} description="× 3 pts" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
 
         <hr className="divider" />
 
@@ -278,7 +297,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
           Penalizaciones — cada una suma 5 pts
         </div>
         <Counter label="No Shoot" value={noShoot} onChange={setNoShoot} multiplier={5} description="× 5 pts" color="#ef4444" />
-        <Counter label="Miss" value={miss} onChange={setMiss} multiplier={5} description="× 5 pts" color="#f97316" />
+        <Counter label="Miss" value={miss} onChange={setMiss} multiplier={5} description="× 5 pts — cuenta como impacto" color="#f97316" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
         <Counter label="Falta de Procedimiento" value={procedural} onChange={setProcedural} multiplier={5} description="× 5 pts" color="#eab308" />
 
         <hr className="divider" />

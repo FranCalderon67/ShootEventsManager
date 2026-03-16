@@ -3,6 +3,7 @@ const Event = require('../models/Event');
 const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 const User = require('../models/User');
 const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer');
+const { uploadPdf, deleteFile } = require('../services/cloudinary');
 const { calcCategoria } = require('./users');
 
 const router = express.Router();
@@ -287,16 +288,43 @@ router.delete('/:id/squads/:squadId', auth, adminOnly, async (req, res) => {
 
 // ---- STAGES ----
 
-// Add stage
-router.post('/:id/stages', auth, adminOnly, async (req, res) => {
+// Add stage (with optional PDF upload)
+router.post('/:id/stages', auth, adminOnly, uploadPdf.single('archivoPdf'), async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está bloqueado' });
 
+    const { name, cartones = 0, metales = 0 } = req.body;
+    if (!name) return res.status(400).json({ message: 'El nombre de la etapa es requerido' });
+
+    const cart = parseInt(cartones) || 0;
+    const met = parseInt(metales) || 0;
+    const impactosPuntuables = (cart * 2) + (met * 1);
+    const archivoPdf = req.file ? req.file.path : null;
+
     const order = event.stages.length + 1;
-    event.stages.push({ ...req.body, order });
+    event.stages.push({ name, order, cartones: cart, metales: met, impactosPuntuables, archivoPdf });
     await event.save();
+    res.json(event);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update stage PDF
+router.put('/:id/stages/:stageId/pdf', auth, adminOnly, uploadPdf.single('archivoPdf'), async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    const stage = event.stages.id(req.params.stageId);
+    if (!stage) return res.status(404).json({ message: 'Etapa no encontrada' });
+
+    if (req.file) {
+      if (stage.archivoPdf) await deleteFile(stage.archivoPdf);
+      stage.archivoPdf = req.file.path;
+      await event.save();
+    }
     res.json(event);
   } catch (error) {
     res.status(500).json({ message: error.message });

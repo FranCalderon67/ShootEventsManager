@@ -7,8 +7,8 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
   const [categoria, setCategoria] = useState(existing?.categoria || '');
   const [division, setDivision] = useState(existing?.division || '');
   const handleSubmit = () => {
-    if (!categoria || !division) return alert('Seleccioná categoría y división');
-    onConfirm({ categoria, division });
+    if (!division) return alert('Seleccioná una división');
+    onConfirm({ division });
   };
 
   return (

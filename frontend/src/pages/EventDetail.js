@@ -20,6 +20,9 @@ export default function EventDetail() {
   const [rankings, setRankings] = useState([]);
   const [showAddStage, setShowAddStage] = useState(false);
   const [stageName, setStageName] = useState('');
+  const [stageCartones, setStageCartones] = useState('');
+  const [stageMetales, setStageMetales] = useState('');
+  const [stagePdf, setStagePdf] = useState(null);
   const [showAddSquad, setShowAddSquad] = useState(false);
   const [squadName, setSquadName] = useState('');
   const [squadMembers, setSquadMembers] = useState([]);
@@ -118,13 +121,22 @@ export default function EventDetail() {
   const handleAddStage = async () => {
     if (!stageName.trim()) return;
     try {
-      const res = await API.post(`/events/${id}/stages`, { name: stageName });
+      const formData = new FormData();
+      formData.append('name', stageName);
+      formData.append('cartones', stageCartones || 0);
+      formData.append('metales', stageMetales || 0);
+      if (stagePdf) formData.append('archivoPdf', stagePdf);
+      const res = await API.post(`/events/${id}/stages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setEvent(res.data);
       const newStage = res.data.stages[res.data.stages.length - 1];
       setActiveStage(newStage._id);
-      setStageName('');
+      setStageName(''); setStageCartones(''); setStageMetales(''); setStagePdf(null);
       setShowAddStage(false);
-    } catch (err) { alert('Error al crear etapa'); }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al crear etapa');
+    }
   };
 
   const handleAddSquad = async () => {
@@ -400,12 +412,37 @@ export default function EventDetail() {
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-body">
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: '200px' }}>
+                  <div className="form-group" style={{ flex: 2, marginBottom: 0, minWidth: '200px' }}>
                     <label className="form-label">Nombre de la Etapa</label>
                     <input className="form-control" value={stageName} onChange={e => setStageName(e.target.value)} placeholder="Ej: Pistola, Rifle, Larga distancia..." autoFocus />
                   </div>
-                  <button className="btn btn-primary" onClick={handleAddStage}>Crear</button>
-                  <button className="btn btn-outline" onClick={() => setShowAddStage(false)}>Cancelar</button>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: '90px' }}>
+                    <label className="form-label">Cartones</label>
+                    <input type="number" min="0" className="form-control" value={stageCartones} onChange={e => setStageCartones(e.target.value)} placeholder="0" />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: '90px' }}>
+                    <label className="form-label">Metales</label>
+                    <input type="number" min="0" className="form-control" value={stageMetales} onChange={e => setStageMetales(e.target.value)} placeholder="0" />
+                  </div>
+                </div>
+                {(stageCartones || stageMetales) ? (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
+                    Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(stageCartones)||0)*2 + (parseInt(stageMetales)||0)}</strong>
+                    <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>({stageCartones||0} cartones × 2 + {stageMetales||0} metales × 1)</span>
+                  </div>
+                ) : null}
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                  <div className="form-group" style={{ flex: 2, marginBottom: 0, minWidth: '200px' }}>
+                    <label className="form-label">Archivo de etapa (PDF)</label>
+                    <input
+                      type="file" accept=".pdf"
+                      className="form-control"
+                      onChange={e => setStagePdf(e.target.files[0] || null)}
+                      style={{ padding: '0.4rem' }}
+                    />
+                  </div>
+                  <button className="btn btn-primary" onClick={handleAddStage} disabled={!stageName.trim()}>Crear</button>
+                  <button className="btn btn-outline" onClick={() => { setShowAddStage(false); setStagePdf(null); }}>Cancelar</button>
                 </div>
               </div>
             </div>
@@ -417,6 +454,36 @@ export default function EventDetail() {
               <div className="empty-state-text">No hay etapas creadas aún</div>
             </div>
           ) : !currentStage ? null : (
+            <>
+            {/* Stage info bar */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+              {currentStage.cartones > 0 && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> cartones
+                </span>
+              )}
+              {currentStage.metales > 0 && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
+                </span>
+              )}
+              {currentStage.impactosPuntuables > 0 && (
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
+                  ✓ {currentStage.impactosPuntuables} impactos puntuables
+                </span>
+              )}
+              {currentStage.archivoPdf && (
+                <a
+                  href={currentStage.archivoPdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
+                >
+                  📄 Ver archivo de etapa
+                </a>
+              )}
+            </div>
             <div className="grid-2">
               {/* Score entry - admin only, hidden when locked */}
               {canScore && !isLocked(event) && (
@@ -451,6 +518,7 @@ export default function EventDetail() {
                     )}
 
                     <ScoreEntry
+                impactosPuntuables={currentStage?.impactosPuntuables || 0}
                       key={`${activeStage}-${selectedSquadFilter}`}
                       shooters={shootersForEntry}
                       scoredShooterIds={blockedShooterIds}
@@ -513,6 +581,7 @@ export default function EventDetail() {
                 </div>
               </div>
             </div>
+            </>
           )}
         </div>
       )}
