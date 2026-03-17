@@ -7,7 +7,7 @@ export default function AdminEventForm() {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState({ name: '', date: '', registrationDeadline: '', description: '', location: '', status: 'upcoming' });
+  const [form, setForm] = useState({ name: '', date: '', registrationDeadline: '', description: '', location: '', status: 'upcoming', isPrivate: false });
   const [allUsers, setAllUsers] = useState([]);
   const [registeredIds, setRegisteredIds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,8 @@ export default function AdminEventForm() {
           registrationDeadline: ev.registrationDeadline?.slice(0, 10) || '',
           description: ev.description || '',
           location: ev.location || '',
-          status: ev.status
+          status: ev.status,
+          isPrivate: ev.isPrivate || false
         });
         setRegisteredIds(ev.registrations?.map(r => r.user?._id || r.user) || []);
       });
@@ -118,6 +119,39 @@ export default function AdminEventForm() {
             <div className="form-group">
               <label className="form-label">Descripción</label>
               <textarea className="form-control" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Información adicional del evento..." />
+            </div>
+
+            {/* Private event toggle */}
+            <div
+              style={{
+                border: `2px solid ${form.isPrivate ? '#7c3aed' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)',
+                background: form.isPrivate ? '#f5f3ff' : '#fafafa',
+                padding: '1rem',
+                cursor: isEdit && form.isPrivate ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                opacity: isEdit && form.isPrivate ? 0.7 : 1,
+              }}
+              onClick={() => { if (!(isEdit && form.isPrivate)) setForm({ ...form, isPrivate: !form.isPrivate }); }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', pointerEvents: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={form.isPrivate}
+                  readOnly
+                  style={{ width: '20px', height: '20px', accentColor: '#7c3aed', flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: form.isPrivate ? '#7c3aed' : 'var(--text)' }}>
+                    🔒 Evento privado
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                    {isEdit && form.isPrivate
+                      ? 'Un evento privado no puede volverse público.'
+                      : 'Solo los tiradores que el admin agregue podrán ver e inscribirse en este evento.'}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

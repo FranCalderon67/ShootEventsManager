@@ -156,7 +156,10 @@ export default function EventsList() {
               <div key={event._id} className="card event-card" onClick={() => navigate(`/events/${event._id}`)}>
                 <div className="card-body">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                    <span className={`badge badge-${event.status}`}>{statusLabel[event.status]}</span>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <span className={`badge badge-${event.status}`}>{statusLabel[event.status]}</span>
+                      {event.isPrivate && <span className="badge" style={{ background: '#7c3aed', color: '#fff', fontSize: '0.68rem' }}>🔒 Privado</span>}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{totalShooters} tiradores</span>
                       {isAdmin && (

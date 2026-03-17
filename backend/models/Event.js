@@ -54,6 +54,7 @@ const eventSchema = new mongoose.Schema({
   squads: [squadSchema],
   stages: [stageSchema],
   registrations: [registrationSchema],
+  isPrivate: { type: Boolean, default: false },
   registrationDeadline: { type: Date, default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { type: String, enum: ['upcoming', 'active', 'finished'], default: 'upcoming' },
