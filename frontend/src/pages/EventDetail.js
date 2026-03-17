@@ -24,6 +24,8 @@ export default function EventDetail() {
   const [stageCartones, setStageCartones] = useState('');
   const [stageMetales, setStageMetales] = useState('');
   const [stagePdf, setStagePdf] = useState(null);
+  const [editingStage, setEditingStage] = useState(null); // { _id, name, cartones, metales }
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'stage'|'squad', id, name }
   const [showAddSquad, setShowAddSquad] = useState(false);
   const [squadName, setSquadName] = useState('');
   const [squadMembers, setSquadMembers] = useState([]);
@@ -191,6 +193,40 @@ export default function EventDetail() {
     } catch (err) { alert(err.response?.data?.message || 'Error'); }
   };
 
+  const handleDeleteStage = async () => {
+    if (!confirmDelete || confirmDelete.type !== 'stage') return;
+    try {
+      const res = await API.delete(`/events/${id}/stages/${confirmDelete.id}`);
+      setEvent(res.data);
+      setConfirmDelete(null);
+      if (activeStage === confirmDelete.id) setActiveStage(res.data.stages[0]?._id || null);
+    } catch (err) { alert(err.response?.data?.message || 'Error al eliminar etapa'); }
+  };
+
+  const handleDeleteSquad = async () => {
+    if (!confirmDelete || confirmDelete.type !== 'squad') return;
+    try {
+      const res = await API.delete(`/events/${id}/squads/${confirmDelete.id}`);
+      setEvent(res.data);
+      setConfirmDelete(null);
+    } catch (err) { alert(err.response?.data?.message || 'Error al eliminar escuadra'); }
+  };
+
+  const handleEditStage = async () => {
+    if (!editingStage || !editingStage.name.trim()) return;
+    try {
+      const formData = new FormData();
+      formData.append('name', editingStage.name);
+      formData.append('cartones', editingStage.cartones || 0);
+      formData.append('metales', editingStage.metales || 0);
+      const res = await API.put(`/events/${id}/stages/${editingStage._id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setEvent(res.data);
+      setEditingStage(null);
+    } catch (err) { alert(err.response?.data?.message || 'Error al editar etapa'); }
+  };
+
   const handleToggleDQ = async (userId, currentDq) => {
     const action = currentDq ? 'quitar la descalificación de' : 'descalificar a';
     const shooter = allShooters.find(s => s._id === userId);
@@ -287,6 +323,67 @@ export default function EventDetail() {
   return (
     <div className="page">
       {adminEditModal}
+
+      {/* Confirm Delete Modal */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', maxWidth: '400px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '0.5rem' }}>
+              🗑️ Eliminar {confirmDelete.type === 'stage' ? 'etapa' : 'escuadra'}
+            </div>
+            <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+              ¿Eliminar <strong style={{ color: '#111827' }}>"{confirmDelete.name}"</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete.type === 'stage' ? handleDeleteStage : handleDeleteSquad}
+                style={{ flex: 1, padding: '0.75rem', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Stage Modal */}
+      {editingStage && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', maxWidth: '480px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '1.25rem' }}>✏️ Editar etapa</div>
+            <div className="form-group">
+              <label className="form-label">Nombre</label>
+              <input className="form-control" value={editingStage.name} onChange={e => setEditingStage({ ...editingStage, name: e.target.value })} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Cartones</label>
+                <input type="number" min="0" className="form-control" value={editingStage.cartones} onChange={e => setEditingStage({ ...editingStage, cartones: e.target.value, metales: editingStage.metales })} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Metales</label>
+                <input type="number" min="0" className="form-control" value={editingStage.metales} onChange={e => setEditingStage({ ...editingStage, metales: e.target.value })} />
+              </div>
+            </div>
+            {(editingStage.cartones || editingStage.metales) ? (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(editingStage.cartones) || 0) * 2 + (parseInt(editingStage.metales) || 0)}</strong>
+              </div>
+            ) : null}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setEditingStage(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleEditStage} disabled={!editingStage.name.trim()} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showRegModal && (
         <RegistrationModal
@@ -394,13 +491,28 @@ export default function EventDetail() {
         <div>
           <div className="stage-buttons">
             {event.stages.map((stage, i) => (
-              <button
-                key={stage._id}
-                className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`}
-                onClick={() => setActiveStage(stage._id)}
-              >
-                Etapa {i + 1}: {stage.name}
-              </button>
+              <div key={stage._id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <button
+                  className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => setActiveStage(stage._id)}
+                >
+                  Etapa {i + 1}: {stage.name}
+                </button>
+                {isAdmin && !isLocked(event) && (
+                  <>
+                    <button
+                      onClick={() => setEditingStage({ _id: stage._id, name: stage.name, cartones: stage.cartones || 0, metales: stage.metales || 0 })}
+                      title="Editar etapa"
+                      style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}
+                    >✏️</button>
+                    <button
+                      onClick={() => setConfirmDelete({ type: 'stage', id: stage._id, name: stage.name })}
+                      title="Eliminar etapa"
+                      style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}
+                    >🗑️</button>
+                  </>
+                )}
+              </div>
             ))}
             {isAdmin && !isLocked(event) && (
               <button className="btn btn-gold btn-sm" onClick={() => setShowAddStage(true)}>
@@ -428,8 +540,8 @@ export default function EventDetail() {
                 </div>
                 {(stageCartones || stageMetales) ? (
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
-                    Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(stageCartones)||0)*2 + (parseInt(stageMetales)||0)}</strong>
-                    <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>({stageCartones||0} cartones × 2 + {stageMetales||0} metales × 1)</span>
+                    Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(stageCartones) || 0) * 2 + (parseInt(stageMetales) || 0)}</strong>
+                    <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>({stageCartones || 0} cartones × 2 + {stageMetales || 0} metales × 1)</span>
                   </div>
                 ) : null}
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '0.75rem' }}>
@@ -485,132 +597,132 @@ export default function EventDetail() {
             </div>
           ) : (
             <>
-            {/* Stage info bar — admin/OC only */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-              {currentStage.cartones > 0 && (
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> cartones
-                </span>
-              )}
-              {currentStage.metales > 0 && (
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
-                </span>
-              )}
-              {currentStage.impactosPuntuables > 0 && (
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
-                  ✓ {currentStage.impactosPuntuables} impactos puntuables
-                </span>
-              )}
-              {currentStage.archivoPdf && (
-                <a
-                  href={currentStage.archivoPdf}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-outline btn-sm"
-                  style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
-                >
-                  📄 Ver archivo de etapa
-                </a>
-              )}
-            </div>
-            <div className="grid-2">
-              {/* Score entry - admin only, hidden when locked */}
-              {canScore && !isLocked(event) && (
+              {/* Stage info bar — admin/OC only */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                {currentStage.cartones > 0 && (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> cartones
+                  </span>
+                )}
+                {currentStage.metales > 0 && (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
+                  </span>
+                )}
+                {currentStage.impactosPuntuables > 0 && (
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
+                    ✓ {currentStage.impactosPuntuables} impactos puntuables
+                  </span>
+                )}
+                {currentStage.archivoPdf && (
+                  <a
+                    href={currentStage.archivoPdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm"
+                    style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
+                  >
+                    📄 Ver archivo de etapa
+                  </a>
+                )}
+              </div>
+              <div className="grid-2">
+                {/* Score entry - admin only, hidden when locked */}
+                {canScore && !isLocked(event) && (
+                  <div className="card">
+                    <div className="card-header">
+                      <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
+                    </div>
+                    <div className="card-body">
+                      {message && (
+                        <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
+                          {message}
+                        </div>
+                      )}
+
+                      {/* Squad filter */}
+                      {event.squads.length > 0 && (
+                        <div className="form-group">
+                          <label className="form-label">Filtrar por escuadra</label>
+                          <select
+                            className="form-control"
+                            value={selectedSquadFilter}
+                            onChange={e => setSelectedSquadFilter(e.target.value)}
+                          >
+                            <option value="all">Todos los tiradores</option>
+                            {event.squads.map((sq, i) => (
+                              <option key={sq._id} value={sq._id}>
+                                Escuadra {i + 1}: {sq.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <ScoreEntry
+                        impactosPuntuables={currentStage?.impactosPuntuables || 0}
+                        key={`${activeStage}-${selectedSquadFilter}`}
+                        shooters={shootersForEntry}
+                        scoredShooterIds={blockedShooterIds}
+                        dqShooterIds={[...dqShooterIds]}
+                        stageId={activeStage}
+                        onSave={handleSaveScore}
+                        saving={saving}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Scores list for this stage */}
                 <div className="card">
                   <div className="card-header">
-                    <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
+                    <div className="card-title">📊 Resultados — {currentStage.name}</div>
                   </div>
-                  <div className="card-body">
-                    {message && (
-                      <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
-                        {message}
+                  <div className="table-container">
+                    {currentStage.scores.length === 0 ? (
+                      <div className="empty-state" style={{ padding: '2rem' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div>
                       </div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tirador</th>
+                            <th>Tiempo</th>
+                            <th>A</th>
+                            <th>B</th>
+                            <th>C</th>
+                            <th title="No Shoot">NS</th>
+                            <th title="Miss">Miss</th>
+                            <th title="Falta de Procedimiento">FP</th>
+                            <th title="Advertencias">Adv</th>
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentStage.scores
+                            .filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id)
+                            .sort((a, b) => a.total - b.total)
+                            .map(score => (
+                              <tr key={score._id}>
+                                <td><strong>{score.shooter?.name || '—'}</strong></td>
+                                <td>{parseFloat(score.time).toFixed(2)}</td>
+                                <td>{score.a}</td>
+                                <td>{score.b}</td>
+                                <td>{score.c}</td>
+                                <td>{score.noShoot ?? 0}</td>
+                                <td>{score.miss ?? 0}</td>
+                                <td>{score.procedural ?? 0}</td>
+                                <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
+                                <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
                     )}
-
-                    {/* Squad filter */}
-                    {event.squads.length > 0 && (
-                      <div className="form-group">
-                        <label className="form-label">Filtrar por escuadra</label>
-                        <select
-                          className="form-control"
-                          value={selectedSquadFilter}
-                          onChange={e => setSelectedSquadFilter(e.target.value)}
-                        >
-                          <option value="all">Todos los tiradores</option>
-                          {event.squads.map((sq, i) => (
-                            <option key={sq._id} value={sq._id}>
-                              Escuadra {i + 1}: {sq.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <ScoreEntry
-                impactosPuntuables={currentStage?.impactosPuntuables || 0}
-                      key={`${activeStage}-${selectedSquadFilter}`}
-                      shooters={shootersForEntry}
-                      scoredShooterIds={blockedShooterIds}
-                      dqShooterIds={[...dqShooterIds]}
-                      stageId={activeStage}
-                      onSave={handleSaveScore}
-                      saving={saving}
-                    />
                   </div>
-                </div>
-              )}
-
-              {/* Scores list for this stage */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">📊 Resultados — {currentStage.name}</div>
-                </div>
-                <div className="table-container">
-                  {currentStage.scores.length === 0 ? (
-                    <div className="empty-state" style={{ padding: '2rem' }}>
-                      <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div>
-                    </div>
-                  ) : (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Tirador</th>
-                          <th>Tiempo</th>
-                          <th>A</th>
-                          <th>B</th>
-                          <th>C</th>
-                          <th title="No Shoot">NS</th>
-                          <th title="Miss">Miss</th>
-                          <th title="Falta de Procedimiento">FP</th>
-                          <th title="Advertencias">Adv</th>
-                          <th>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentStage.scores
-                          .filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id)
-                          .sort((a, b) => a.total - b.total)
-                          .map(score => (
-                            <tr key={score._id}>
-                              <td><strong>{score.shooter?.name || '—'}</strong></td>
-                              <td>{parseFloat(score.time).toFixed(2)}</td>
-                              <td>{score.a}</td>
-                              <td>{score.b}</td>
-                              <td>{score.c}</td>
-                              <td>{score.noShoot ?? 0}</td>
-                              <td>{score.miss ?? 0}</td>
-                              <td>{score.procedural ?? 0}</td>
-                              <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
                 </div>
               </div>
-            </div>
             </>
           )}
         </div>
@@ -693,6 +805,13 @@ export default function EventDetail() {
                           <button className="btn btn-gold btn-sm" onClick={() => { setEditingSquadId(squad._id); setAddMemberIds([]); }}>
                             + Agregar tirador
                           </button>
+                        )}
+                        {isAdmin && !isLocked(event) && (
+                          <button
+                            onClick={() => setConfirmDelete({ type: 'squad', id: squad._id, name: squad.name })}
+                            title="Eliminar escuadra"
+                            style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-muted)' }}
+                          >🗑️</button>
                         )}
                       </div>
                     </div>

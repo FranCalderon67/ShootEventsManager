@@ -332,6 +332,36 @@ router.put('/:id/stages/:stageId/pdf', auth, adminOnly, uploadPdf.single('archiv
   }
 });
 
+// Edit stage
+router.put('/:id/stages/:stageId', auth, adminOnly, uploadPdf.single('archivoPdf'), async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está bloqueado' });
+
+    const stage = event.stages.id(req.params.stageId);
+    if (!stage) return res.status(404).json({ message: 'Etapa no encontrada' });
+
+    const { name, cartones, metales } = req.body;
+    if (name) stage.name = name;
+    if (cartones !== undefined) {
+      const cart = parseInt(cartones) || 0;
+      const met = parseInt(metales) || 0;
+      stage.cartones = cart;
+      stage.metales = met;
+      stage.impactosPuntuables = (cart * 2) + met;
+    }
+    if (req.file) {
+      if (stage.archivoPdf) await deleteFile(stage.archivoPdf);
+      stage.archivoPdf = req.file.path;
+    }
+    await event.save();
+    res.json(event);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Delete stage
 router.delete('/:id/stages/:stageId', auth, adminOnly, async (req, res) => {
   try {
