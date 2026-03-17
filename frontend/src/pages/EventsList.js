@@ -8,6 +8,7 @@ export default function EventsList() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalEvent, setModalEvent] = useState(null); // event being registered to
+  const [deleteEvent, setDeleteEvent] = useState(null); // event to delete
   const [registering, setRegistering] = useState(false);
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -25,11 +26,14 @@ export default function EventsList() {
 
   const isRegistered = (event) => Boolean(getMyRegistration(event));
 
+  const endOfDayUTC3 = (date) => {
+    const d = new Date(date);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
+  };
+
   const isDeadlinePassed = (event) => {
     if (!event.registrationDeadline) return false;
-    const d = new Date(event.registrationDeadline);
-    d.setHours(23, 59, 59, 999);
-    return new Date() > d;
+    return Date.now() > endOfDayUTC3(event.registrationDeadline);
   };
 
   const handleRegisterClick = (e, event) => {
@@ -61,6 +65,21 @@ export default function EventsList() {
     }
   };
 
+  const handleDeleteEvent = (e, event) => {
+    e.stopPropagation();
+    setDeleteEvent(event);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await API.delete(`/events/${deleteEvent._id}`);
+      setDeleteEvent(null);
+      fetchEvents();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al eliminar el evento');
+    }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
   const statusLabel = { upcoming: 'Próximo', active: 'En curso', finished: 'Finalizado' };
 
@@ -75,6 +94,35 @@ export default function EventsList() {
           onConfirm={handleConfirmRegister}
           onCancel={() => setModalEvent(null)}
         />
+      )}
+
+      {deleteEvent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', maxWidth: '420px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '0.4rem' }}>
+                🗑️ Eliminar evento
+              </div>
+              <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+                ¿Estás seguro que querés eliminar <strong style={{ color: '#111827' }}>"{deleteEvent.name}"</strong>? Esta acción no se puede deshacer y se perderán todos los datos del evento.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setDeleteEvent(null)}
+                style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                style={{ flex: 1, padding: '0.75rem', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="section-header">
@@ -109,7 +157,18 @@ export default function EventsList() {
                 <div className="card-body">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                     <span className={`badge badge-${event.status}`}>{statusLabel[event.status]}</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{totalShooters} tiradores</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{totalShooters} tiradores</span>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => handleDeleteEvent(e, event)}
+                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.85rem', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: 'var(--radius)' }}
+                          title="Eliminar evento"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="event-date">{formatDate(event.date)}</div>
                   <div className="event-name">{event.name}</div>
