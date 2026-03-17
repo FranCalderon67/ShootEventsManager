@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function AdminUsers() {
     try {
       await API.post('/users', form);
       setSuccess('Usuario creado correctamente');
-      setForm({ name: '', email: '', password: '', role: 'user' });
+      setForm({ name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' });
       setShowForm(false);
       fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
@@ -85,6 +85,18 @@ export default function AdminUsers() {
                     <option value="user">Usuario</option>
                     <option value="admin">Administrador</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Género</label>
+                  <select className="form-control" value={form.genero} onChange={e => setForm({...form, genero: e.target.value})}>
+                    <option value="">— Seleccionar —</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fecha de nacimiento</label>
+                  <input type="date" className="form-control" value={form.fechaNacimiento} onChange={e => setForm({...form, fechaNacimiento: e.target.value})} />
                 </div>
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>

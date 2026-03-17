@@ -4,10 +4,10 @@ const { auth, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Calculate categoria based on sexo, fechaNacimiento and event date
-const calcCategoria = (sexo, fechaNacimiento, eventDate = new Date()) => {
-  if (!sexo || !fechaNacimiento) return 'General';
-  if (sexo === 'Femenino') return 'Lady';
+// Calculate categoria based on genero, fechaNacimiento and event date
+const calcCategoria = (genero, fechaNacimiento, eventDate = new Date()) => {
+  if (!genero || !fechaNacimiento) return 'General';
+  if (genero === 'Femenino') return 'Lady';
   const birth = new Date(fechaNacimiento);
   const ref = new Date(eventDate);
   let age = ref.getFullYear() - birth.getFullYear();
@@ -33,11 +33,17 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // Create user (admin only)
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, genero, fechaNacimiento } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ message: 'El email ya está registrado' });
 
-    const user = new User({ name, email, password, role: role || 'user' });
+    let fechaNac = null;
+    if (fechaNacimiento) {
+      const [y, m, d] = fechaNacimiento.toString().slice(0, 10).split('-');
+      fechaNac = new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
+    }
+
+    const user = new User({ name, email, password, role: role || 'user', genero: genero || null, fechaNacimiento: fechaNac });
     await user.save();
     res.status(201).json(user);
   } catch (error) {
@@ -45,14 +51,14 @@ router.post('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-// Update own profile (name, sexo, fechaNacimiento) — must be before /:id
+// Update own profile (name, genero, fechaNacimiento) — must be before /:id
 router.put('/me', auth, async (req, res) => {
   try {
-    const { name, sexo, fechaNacimiento } = req.body;
+    const { name, genero, fechaNacimiento } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     if (name) user.name = name;
-    if (sexo !== undefined) user.sexo = sexo;
+    if (genero !== undefined) user.genero = genero;
     if (fechaNacimiento !== undefined) {
       if (!fechaNacimiento) {
         user.fechaNacimiento = null;

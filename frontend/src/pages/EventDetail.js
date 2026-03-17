@@ -42,8 +42,8 @@ export default function EventDetail() {
 
   // Calculate categoria based on user profile and event date
   const calcCategoria = () => {
-    if (!user?.sexo || !user?.fechaNacimiento) return 'General';
-    if (user.sexo === 'Femenino') return 'Lady';
+    if (!user?.genero || !user?.fechaNacimiento) return 'General';
+    if (user.genero === 'Femenino') return 'Lady';
     const birth = new Date(user.fechaNacimiento);
     const ref = event ? new Date(event.date) : new Date();
     let age = ref.getFullYear() - birth.getFullYear();

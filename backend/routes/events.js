@@ -127,7 +127,7 @@ router.post('/:id/register', auth, async (req, res) => {
 
     // Auto-calculate categoria based on shooter's profile and event date
     const shooterUser = await User.findById(userId);
-    const categoria = calcCategoria(shooterUser?.sexo, shooterUser?.fechaNacimiento, event.date);
+    const categoria = calcCategoria(shooterUser?.genero, shooterUser?.fechaNacimiento, event.date);
 
     const { isOC = false } = req.body;
 
@@ -308,6 +308,7 @@ router.post('/:id/stages', auth, adminOnly, uploadPdf.single('archivoPdf'), asyn
     await event.save();
     res.json(event);
   } catch (error) {
+    console.error('❌ Error creando etapa:', error.message);
     res.status(500).json({ message: error.message });
   }
 });

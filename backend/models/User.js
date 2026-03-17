@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
   isOC: { type: Boolean, default: false },
-  sexo: { type: String, enum: ['Masculino', 'Femenino'], default: null },
+  genero: { type: String, enum: ['Masculino', 'Femenino'], default: null },
   fechaNacimiento: { type: Date, default: null },
   googleId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }

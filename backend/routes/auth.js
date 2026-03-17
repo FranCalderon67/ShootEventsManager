@@ -11,7 +11,7 @@ const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expires
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, sexo, fechaNacimiento } = req.body;
+    const { name, email, password, role, genero, fechaNacimiento } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ message: 'El email ya está registrado' });
 
@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
       const [y, m, d] = fechaNacimiento.toString().slice(0, 10).split('-');
       fechaNac = new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
     }
-    const user = new User({ name, email, password, role: userRole, sexo: sexo || null, fechaNacimiento: fechaNac });
+    const user = new User({ name, email, password, role: userRole, genero: genero || null, fechaNacimiento: fechaNac });
     await user.save();
 
     // Send welcome email (non-blocking)

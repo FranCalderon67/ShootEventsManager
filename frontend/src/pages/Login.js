@@ -29,10 +29,10 @@ function GoogleButton({ onSuccess, onError, loading }) {
           <span className="spinner" style={{ borderColor: '#4285f4', borderTopColor: 'transparent' }}></span>
         ) : (
           <svg width="18" height="18" viewBox="0 0 18 18">
-            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z" />
-            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.83v2.07A8 8 0 0 0 8.98 17z" />
-            <path fill="#FBBC05" d="M4.51 10.53c-.16-.48-.25-.99-.25-1.53s.09-1.05.25-1.53V5.4H1.83a8 8 0 0 0 0 7.2l2.68-2.07z" />
-            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.47c.64-1.87 2.4-3.29 4.48-3.29z" />
+            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+            <path fill="#FBBC05" d="M4.51 10.53c-.16-.48-.25-.99-.25-1.53s.09-1.05.25-1.53V5.4H1.83a8 8 0 0 0 0 7.2l2.68-2.07z"/>
+            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.47c.64-1.87 2.4-3.29 4.48-3.29z"/>
           </svg>
         )}
         {loading ? 'Conectando...' : 'Continuar con Google'}
@@ -52,7 +52,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [sexo, setSexo] = useState('');
+  const [genero, setGenero] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ export default function Login() {
     if (password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     setLoading(true);
     try {
-      await API.post('/auth/register', { name, email, password, role: 'user', sexo, fechaNacimiento });
+      await API.post('/auth/register', { name, email, password, role: 'user', genero, fechaNacimiento });
       await login(email, password);
       navigate('/events');
     } catch (err) {
@@ -123,7 +123,7 @@ export default function Login() {
             src="/logo-login.png"
             alt="Tiro Federal Mendoza"
             style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '0.75rem' }}
-            onError={e => e.target.style.display = 'none'}
+            onError={e => e.target.style.display='none'}
           />
           <div className="login-title">TIRO FEDERAL MENDOZA</div>
           <div className="login-subtitle">Sistema de Gestión de Eventos</div>
@@ -155,7 +155,7 @@ export default function Login() {
             {error && <div className="alert alert-error">{error}</div>}
 
             {/* Google button */}
-            {hasGoogleClientId && (
+                        {hasGoogleClientId && (
               <GoogleButton
                 onSuccess={handleGoogleSuccess}
                 onError={() => setError('Error al conectar con Google')}
@@ -184,8 +184,8 @@ export default function Login() {
                   <input type="text" className="form-control" placeholder="Juan Pérez" value={name} onChange={e => setName(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Sexo</label>
-                  <select className="form-control" value={sexo} onChange={e => setSexo(e.target.value)} required>
+                  <label className="form-label">Género</label>
+                  <select className="form-control" value={genero} onChange={e => setGenero(e.target.value)} required>
                     <option value="">— Seleccionar —</option>
                     <option value="Masculino">Masculino</option>
                     <option value="Femenino">Femenino</option>

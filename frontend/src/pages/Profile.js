@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
-const calcCategoria = (sexo, fechaNacimiento) => {
-  if (!sexo || !fechaNacimiento) return null;
-  if (sexo === 'Femenino') return 'Lady';
+const calcCategoria = (genero, fechaNacimiento) => {
+  if (!genero || !fechaNacimiento) return null;
+  if (genero === 'Femenino') return 'Lady';
   const birth = new Date(fechaNacimiento);
   const ref = new Date();
   let age = ref.getFullYear() - birth.getFullYear();
@@ -31,14 +31,14 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: user?.name || '',
-    sexo: user?.sexo || '',
+    genero: user?.genero || '',
     fechaNacimiento: user?.fechaNacimiento ? user.fechaNacimiento.slice(0, 10) : '',
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const categoria = calcCategoria(user?.sexo, user?.fechaNacimiento);
+  const categoria = calcCategoria(user?.genero, user?.fechaNacimiento);
   const catStyle = categoria ? CATEGORIA_COLORS[categoria] : null;
 
   const calcAge = (fecha) => {
@@ -98,7 +98,7 @@ export default function Profile() {
             </div>
             {age !== null && (
               <div style={{ fontSize: '0.8rem', color: catStyle.color, opacity: 0.7, marginTop: '0.15rem' }}>
-                {age} años · {user.sexo}
+                {age} años · {user.genero}
               </div>
             )}
           </div>
@@ -107,7 +107,7 @@ export default function Profile() {
 
       {!categoria && (
         <div className="alert alert-info" style={{ marginBottom: '1.5rem' }}>
-          ⚠️ Completá tu sexo y fecha de nacimiento para que el sistema asigne tu categoría automáticamente.
+          ⚠️ Completá tu género y fecha de nacimiento para que el sistema asigne tu categoría automáticamente.
         </div>
       )}
 
@@ -133,8 +133,8 @@ export default function Profile() {
                   <input className="form-control" value={user?.email} disabled style={{ opacity: 0.6 }} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Sexo</label>
-                  <select className="form-control" value={form.sexo} onChange={e => setForm({ ...form, sexo: e.target.value })} required>
+                  <label className="form-label">Género</label>
+                  <select className="form-control" value={form.genero} onChange={e => setForm({ ...form, genero: e.target.value })} required>
                     <option value="">— Seleccionar —</option>
                     <option value="Masculino">Masculino</option>
                     <option value="Femenino">Femenino</option>
@@ -165,7 +165,7 @@ export default function Profile() {
               {[
                 { label: 'Nombre', value: user?.name },
                 { label: 'Email', value: user?.email },
-                { label: 'Sexo', value: user?.sexo || '—' },
+                { label: 'Género', value: user?.genero || '—' },
                 { label: 'Fecha de nacimiento', value: user?.fechaNacimiento ? new Date(user.fechaNacimiento).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
                 { label: 'Edad', value: age !== null ? `${age} años` : '—' },
                 { label: 'Rol', value: user?.role === 'admin' ? 'Administrador' : user?.isOC ? 'Oficial de Campo' : 'Tirador' },
