@@ -41,7 +41,7 @@ function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId }) 
             <th>Cat.</th>
             <th>Div.</th>
             {stages.map((s, i) => <th key={s._id}>Et. {i + 1}</th>)}
-            <th>Promedio</th>
+            <th>Puntaje</th>
             <th>%</th>
           </tr>
         </thead>
@@ -222,7 +222,7 @@ function MyResults({ event, myRanking, rankings }) {
         {/* Event total */}
         <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Promedio del evento</div>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Puntaje del evento</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{myRanking.stagesCompleted} / {event.stages.length} etapas completadas</div>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: myRanking.dq ? '#ef4444' : 'var(--primary)' }}>
@@ -323,7 +323,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
             <div className="card">
               <div className="card-header">
                 <div className="card-title">🏆 Resultados Generales</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Menor puntaje = mejor posición</div>
+
               </div>
               {enriched.length === 0 ? (
                 <div className="empty-state">
