@@ -216,7 +216,7 @@ export default function EventsList() {
                               className="btn btn-danger btn-sm"
                               onClick={(e) => handleUnregister(e, event)}
                             >
-                              Cancelar
+                              Cancelar inscripción
                             </button>
                           </div>
                         </div>
