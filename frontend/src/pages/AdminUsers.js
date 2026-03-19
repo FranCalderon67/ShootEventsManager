@@ -2,35 +2,59 @@ import React, { useState, useEffect } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' };
+
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editingUser, setEditingUser] = useState(null); // user being edited
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { user: currentUser } = useAuth();
 
   const fetchUsers = () => API.get('/users').then(res => setUsers(res.data));
-
   useEffect(() => { fetchUsers(); }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       await API.post('/users', form);
       setSuccess('Usuario creado correctamente');
-      setForm({ name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' });
+      setForm(EMPTY_FORM);
       setShowForm(false);
       fetchUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al crear usuario');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
+  };
+
+  const handleEdit = (u) => {
+    setEditingUser({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      genero: u.genero || '',
+      fechaNacimiento: u.fechaNacimiento ? u.fechaNacimiento.slice(0, 10) : '',
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      await API.put(`/users/${editingUser._id}`, editingUser);
+      setSuccess('Usuario actualizado correctamente');
+      setEditingUser(null);
+      fetchUsers();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al actualizar usuario');
+    } finally { setLoading(false); }
   };
 
   const handleDelete = async (id) => {
@@ -49,11 +73,80 @@ export default function AdminUsers() {
     }
   };
 
+  const fieldSet = (obj, setObj) => (field, val) => setObj({ ...obj, [field]: val });
+
+  const UserForm = ({ title, data, onChange, onSubmit, onCancel, isEdit }) => (
+    <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card-header"><div className="card-title">{title}</div></div>
+      <div className="card-body">
+        <form onSubmit={onSubmit}>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Nombre</label>
+              <input className="form-control" value={data.name} onChange={e => onChange('name', e.target.value)} required placeholder="Nombre completo" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input type="email" className="form-control" value={data.email} onChange={e => onChange('email', e.target.value)} required placeholder="email@ejemplo.com" />
+            </div>
+            {!isEdit && (
+              <div className="form-group">
+                <label className="form-label">Contraseña</label>
+                <input type="password" className="form-control" value={data.password} onChange={e => onChange('password', e.target.value)} required placeholder="Mínimo 6 caracteres" />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Rol</label>
+              <select className="form-control" value={data.role} onChange={e => onChange('role', e.target.value)}>
+                <option value="user">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Género</label>
+              <select className="form-control" value={data.genero} onChange={e => onChange('genero', e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha de nacimiento</label>
+              <input type="date" className="form-control" value={data.fechaNacimiento} onChange={e => onChange('fechaNacimiento', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Guardando...' : isEdit ? '💾 Guardar cambios' : 'Crear Usuario'}
+            </button>
+            <button type="button" className="btn btn-outline" onClick={onCancel}>Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page">
+      {/* Edit modal */}
+      {editingUser && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '1.5rem', maxWidth: '560px', width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+            <UserForm
+              title={`✏️ Editar — ${editingUser.name}`}
+              data={editingUser}
+              onChange={(f, v) => setEditingUser({ ...editingUser, [f]: v })}
+              onSubmit={handleSaveEdit}
+              onCancel={() => setEditingUser(null)}
+              isEdit={true}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="section-header">
         <div className="section-title">Gestión de Usuarios</div>
-        <button className="btn btn-accent" onClick={() => setShowForm(!showForm)}>
+        <button className="btn btn-accent" onClick={() => { setShowForm(!showForm); setError(''); }}>
           {showForm ? '✕ Cancelar' : '+ Nuevo Usuario'}
         </button>
       </div>
@@ -62,49 +155,14 @@ export default function AdminUsers() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {showForm && (
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <div className="card-header"><div className="card-title">Crear Usuario</div></div>
-          <div className="card-body">
-            <form onSubmit={handleCreate}>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Nombre</label>
-                  <input className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required placeholder="Nombre completo" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Email</label>
-                  <input type="email" className="form-control" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required placeholder="email@ejemplo.com" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Contraseña</label>
-                  <input type="password" className="form-control" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required placeholder="Mínimo 6 caracteres" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Rol</label>
-                  <select className="form-control" value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
-                    <option value="user">Usuario</option>
-                    <option value="admin">Administrador</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Género</label>
-                  <select className="form-control" value={form.genero} onChange={e => setForm({...form, genero: e.target.value})}>
-                    <option value="">— Seleccionar —</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Femenino">Femenino</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Fecha de nacimiento</label>
-                  <input type="date" className="form-control" value={form.fechaNacimiento} onChange={e => setForm({...form, fechaNacimiento: e.target.value})} />
-                </div>
-              </div>
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Creando...' : 'Crear Usuario'}
-              </button>
-            </form>
-          </div>
-        </div>
+        <UserForm
+          title="Crear Usuario"
+          data={form}
+          onChange={(f, v) => setForm({ ...form, [f]: v })}
+          onSubmit={handleCreate}
+          onCancel={() => { setShowForm(false); setForm(EMPTY_FORM); }}
+          isEdit={false}
+        />
       )}
 
       <div className="card">
@@ -142,22 +200,18 @@ export default function AdminUsers() {
                   <td>
                     {u.role !== 'admin' && (
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', justifyContent: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={u.isOC || false}
-                          onChange={() => handleToggleOC(u)}
-                          style={{ width: '16px', height: '16px', accentColor: '#d97706', cursor: 'pointer' }}
-                        />
+                        <input type="checkbox" checked={u.isOC || false} onChange={() => handleToggleOC(u)} style={{ width: '16px', height: '16px', accentColor: '#d97706', cursor: 'pointer' }} />
                         {u.isOC && <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 700 }}>🏅</span>}
                       </label>
                     )}
                   </td>
                   <td>
-                    {u._id !== currentUser._id && (
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u._id)}>
-                        Eliminar
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => handleEdit(u)}>✏️ Editar</button>
+                      {u._id !== currentUser._id && (
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u._id)}>Eliminar</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

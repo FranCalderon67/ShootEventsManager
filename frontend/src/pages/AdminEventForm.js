@@ -10,6 +10,7 @@ export default function AdminEventForm() {
   const [form, setForm] = useState({ name: '', date: '', registrationDeadline: '', description: '', location: '', status: 'upcoming', isPrivate: false });
   const [allUsers, setAllUsers] = useState([]);
   const [registeredIds, setRegisteredIds] = useState([]);
+  const [userDivisions, setUserDivisions] = useState({}); // { userId: { categoria, division } }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,7 +28,14 @@ export default function AdminEventForm() {
           status: ev.status,
           isPrivate: ev.isPrivate || false
         });
-        setRegisteredIds(ev.registrations?.map(r => r.user?._id || r.user) || []);
+        const regs = ev.registrations || [];
+        setRegisteredIds(regs.map(r => r.user?._id || r.user));
+        const divMap = {};
+        regs.forEach(r => {
+          const uid = r.user?._id || r.user;
+          divMap[uid] = { categoria: r.categoria || '', division: r.division || '' };
+        });
+        setUserDivisions(divMap);
       });
     }
   }, [id]);
@@ -42,7 +50,10 @@ export default function AdminEventForm() {
         // Sync registrations: add new ones
         const current = (await API.get(`/events/${id}`)).data.registrations?.map(r => r.user?._id || r.user) || [];
         for (const uid of registeredIds) {
-          if (!current.includes(uid)) await API.post(`/events/${id}/register`, { userId: uid, categoria: 'General', division: 'Stock' });
+          if (!current.includes(uid)) {
+            const d = userDivisions[uid] || {};
+            await API.post(`/events/${id}/register`, { userId: uid, division: d.division || 'Stock' });
+          }
         }
         for (const uid of current) {
           if (!registeredIds.includes(uid)) await API.delete(`/events/${id}/register/${uid}`);
@@ -52,7 +63,8 @@ export default function AdminEventForm() {
         const res = await API.post('/events', form);
         const newId = res.data._id;
         for (const uid of registeredIds) {
-          await API.post(`/events/${newId}/register`, { userId: uid });
+          const d = userDivisions[uid] || {};
+          await API.post(`/events/${newId}/register`, { userId: uid, division: d.division || 'Stock' });
         }
         navigate(`/events/${newId}`);
       }
@@ -64,10 +76,14 @@ export default function AdminEventForm() {
   };
 
   const toggleUser = (uid) => {
-    setRegisteredIds(prev =>
-      prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
-    );
+    setRegisteredIds(prev => {
+      if (prev.includes(uid)) return prev.filter(id => id !== uid);
+      if (!userDivisions[uid]) setUserDivisions(d => ({ ...d, [uid]: { division: 'Stock' } }));
+      return [...prev, uid];
+    });
   };
+
+  const DIVISIONES = ['Custom', 'Stock', 'Optic'];
 
   return (
     <div className="page" style={{ maxWidth: '700px' }}>
@@ -166,16 +182,37 @@ export default function AdminEventForm() {
               <div className="alert alert-info">No hay usuarios registrados aún. <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/admin/users')} style={{ marginLeft: '0.5rem' }}>Gestionar usuarios</button></div>
             ) : (
               <div className="user-list">
-                {allUsers.map(u => (
-                  <div key={u._id} className={`user-item ${registeredIds.includes(u._id) ? 'selected' : ''}`} onClick={() => toggleUser(u._id)}>
-                    <div className="user-avatar">{u.name[0].toUpperCase()}</div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{u.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                {allUsers.map(u => {
+                  const isSelected = registeredIds.includes(u._id);
+                  const divData = userDivisions[u._id] || {};
+                  return (
+                    <div key={u._id}>
+                      <div className={`user-item ${isSelected ? 'selected' : ''}`} onClick={() => toggleUser(u._id)}>
+                        <div className="user-avatar">{u.name[0].toUpperCase()}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{u.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                        </div>
+                        {isSelected && <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 700 }}>✓</span>}
+                      </div>
+                      {isSelected && (
+                        <div style={{ display: 'flex', gap: '0.5rem', padding: '0.5rem 0.75rem', background: '#f0fdf4', borderTop: '1px solid #d1fae5' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>División</div>
+                            <select
+                              className="form-control"
+                              style={{ padding: '0.3rem 0.5rem', fontSize: '0.85rem' }}
+                              value={divData.division || 'Stock'}
+                              onChange={e => setUserDivisions(d => ({ ...d, [u._id]: { ...d[u._id], division: e.target.value } }))}
+                            >
+                              {DIVISIONES.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {registeredIds.includes(u._id) && <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 700 }}>✓</span>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

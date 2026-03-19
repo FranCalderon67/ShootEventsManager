@@ -496,7 +496,7 @@ export default function EventDetail() {
                   className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`}
                   onClick={() => setActiveStage(stage._id)}
                 >
-                  Et. {i + 1} — {stage.name}
+                  {stage.name}
                 </button>
                 {isAdmin && !isLocked(event) && (
                   <>

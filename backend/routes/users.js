@@ -77,13 +77,22 @@ router.put('/me', auth, async (req, res) => {
 // Update user (admin only)
 router.put('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { name, email, role } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { name, email, role },
-      { new: true }
-    ).select('-password');
+    const { name, email, role, genero, fechaNacimiento } = req.body;
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (role) user.role = role;
+    if (genero !== undefined) user.genero = genero || null;
+    if (fechaNacimiento !== undefined) {
+      if (!fechaNacimiento) {
+        user.fechaNacimiento = null;
+      } else {
+        const [y, m, d] = fechaNacimiento.toString().slice(0, 10).split('-');
+        user.fechaNacimiento = new Date(Date.UTC(+y, +m - 1, +d, 12, 0, 0, 0));
+      }
+    }
+    await user.save();
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
