@@ -108,6 +108,7 @@ function DQModal({ onConfirm, onCancel }) {
 export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, onSave, saving, impactosPuntuables = 0 }) {
   const [selectedShooter, setSelectedShooter] = useState('');
   const [a, setA] = useState(0);
+  const [metal, setMetal] = useState(0);
   const [b, setB] = useState(0);
   const [c, setC] = useState(0);
   const [noShoot, setNoShoot] = useState(0);
@@ -136,7 +137,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
     if (!selectedShooter) return alert('Seleccioná un tirador');
     if (!isDQ && (time === '' || isNaN(parseFloat(time)))) return alert('Ingresá el tiempo');
     if (impactosPuntuables > 0 && !isDQ) {
-      const totalImpactos = a + b + c + miss;
+      const totalImpactos = a + b + c + metal + miss;
       if (totalImpactos > impactosPuntuables) {
         return alert(`Los impactos (${totalImpactos}) superan el máximo puntuable (${impactosPuntuables})`);
       }
@@ -147,7 +148,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
   const handleSave = () => {
     const finalTime = parseFloat(time) || 0;
     onSave({
-      shooter: selectedShooter, a, b, c, noShoot, miss, procedural,
+      shooter: selectedShooter, a, b, c, metal, noShoot, miss, procedural,
       warnings, dq: isDQ, time: finalTime,
       manualDQ, dqReason
     });
@@ -157,7 +158,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
     setSelectedShooter(e.target.value);
     setA(0); setB(0); setC(0);
     setNoShoot(0); setMiss(0); setProcedural(0);
-    setWarnings(0); setManualDQ(false); setDqReason(''); setTime('');
+    setMetal(0); setWarnings(0); setManualDQ(false); setDqReason(''); setTime('');
   };
 
   const handleCheckboxClick = () => {
@@ -281,7 +282,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>Impactos</div>
           {impactosPuntuables > 0 && (() => {
-            const totalImpactos = a + b + c + miss;
+            const totalImpactos = a + b + c + metal + miss;
             const over = totalImpactos > impactosPuntuables;
             const exact = totalImpactos === impactosPuntuables;
             return (
@@ -292,9 +293,10 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
             );
           })()}
         </div>
-        <Counter label="A" labelClass="label-a" value={a} onChange={setA} multiplier={0} description="× 0 pts — incluye metales" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
-        <Counter label="B" labelClass="label-b" value={b} onChange={setB} multiplier={1} description="× 1 pt" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
-        <Counter label="C" labelClass="label-c" value={c} onChange={setC} multiplier={3} description="× 3 pts" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
+        <Counter label="A" labelClass="label-a" value={a} onChange={setA} multiplier={0} description="× 0 pts" disabledPlus={impactosPuntuables > 0 && (a + b + c + metal + miss) >= impactosPuntuables} />
+        <Counter label="B" labelClass="label-b" value={b} onChange={setB} multiplier={1} description="× 1 pt" disabledPlus={impactosPuntuables > 0 && (a + b + c + metal + miss) >= impactosPuntuables} />
+        <Counter label="C" labelClass="label-c" value={c} onChange={setC} multiplier={3} description="× 3 pts" disabledPlus={impactosPuntuables > 0 && (a + b + c + metal + miss) >= impactosPuntuables} />
+        <Counter label="Metal" value={metal} onChange={setMetal} multiplier={0} description="× 0 pts" color="#6b7280" disabledPlus={impactosPuntuables > 0 && (a + b + c + metal + miss) >= impactosPuntuables} />
 
         <hr className="divider" />
 
@@ -303,7 +305,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
           Penalizaciones — cada una suma 5 pts
         </div>
         <Counter label="No Shoot" value={noShoot} onChange={setNoShoot} multiplier={5} description="× 5 pts" color="#ef4444" />
-        <Counter label="Miss" value={miss} onChange={setMiss} multiplier={5} description="× 5 pts — cuenta como impacto" color="#f97316" disabledPlus={impactosPuntuables > 0 && (a + b + c + miss) >= impactosPuntuables} />
+        <Counter label="Miss" value={miss} onChange={setMiss} multiplier={5} description="× 5 pts — cuenta como impacto" color="#f97316" disabledPlus={impactosPuntuables > 0 && (a + b + c + metal + miss) >= impactosPuntuables} />
         <Counter label="Falta de Procedimiento" value={procedural} onChange={setProcedural} multiplier={5} description="× 5 pts" color="#eab308" />
 
         <hr className="divider" />
@@ -401,7 +403,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
                 <table className="summary-table-desktop" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr>
-                      {['Tiempo', 'A', 'B', 'C', 'Miss', 'NS', 'F.P.', 'Total'].map(h => (
+                      {['Tiempo', 'A', 'Metal', 'B', 'C', 'Miss', 'NS', 'F.P.', 'Total'].map(h => (
                         <th key={h} style={{ color: '#6b7280', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', padding: '0 0.5rem 0.625rem', textAlign: 'center', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
@@ -411,6 +413,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
                       {[
                         { val: `${timeNum.toFixed(2)}s`, color: '#111827' },
                         { val: a, color: '#16a34a' },
+                        { val: metal, color: '#6b7280' },
                         { val: b, color: '#ca8a04' },
                         { val: c, color: '#d97706' },
                         { val: miss, color: '#dc2626' },

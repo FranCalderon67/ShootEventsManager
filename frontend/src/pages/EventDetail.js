@@ -360,7 +360,7 @@ export default function EventDetail() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Cartones</label>
+                <label className="form-label">Tarjetas</label>
                 <input type="number" min="0" className="form-control" value={editingStage.cartones} onChange={e => setEditingStage({ ...editingStage, cartones: e.target.value, metales: editingStage.metales })} />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -370,7 +370,7 @@ export default function EventDetail() {
             </div>
             {(editingStage.cartones || editingStage.metales) ? (
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(editingStage.cartones) || 0) * 2 + (parseInt(editingStage.metales) || 0)}</strong>
+                Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(editingStage.cartones)||0)*2 + (parseInt(editingStage.metales)||0)}</strong>
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -496,7 +496,7 @@ export default function EventDetail() {
                   className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`}
                   onClick={() => setActiveStage(stage._id)}
                 >
-                  Etapa {i + 1}: {stage.name}
+                  Et. {i + 1} — {stage.name}
                 </button>
                 {isAdmin && !isLocked(event) && (
                   <>
@@ -530,7 +530,7 @@ export default function EventDetail() {
                     <input className="form-control" value={stageName} onChange={e => setStageName(e.target.value)} placeholder="Ej: Pistola, Rifle, Larga distancia..." autoFocus />
                   </div>
                   <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: '90px' }}>
-                    <label className="form-label">Cartones</label>
+                    <label className="form-label">Tarjetas</label>
                     <input type="number" min="0" className="form-control" value={stageCartones} onChange={e => setStageCartones(e.target.value)} placeholder="0" />
                   </div>
                   <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: '90px' }}>
@@ -540,8 +540,8 @@ export default function EventDetail() {
                 </div>
                 {(stageCartones || stageMetales) ? (
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
-                    Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(stageCartones) || 0) * 2 + (parseInt(stageMetales) || 0)}</strong>
-                    <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>({stageCartones || 0} cartones × 2 + {stageMetales || 0} metales × 1)</span>
+                    Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(stageCartones)||0)*2 + (parseInt(stageMetales)||0)}</strong>
+                    <span style={{ marginLeft: '0.5rem', opacity: 0.7 }}>({stageCartones||0} tarjetas × 2 + {stageMetales||0} metales × 1)</span>
                   </div>
                 ) : null}
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '0.75rem' }}>
@@ -571,23 +571,24 @@ export default function EventDetail() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">📄 {currentStage.name}</div>
+                {currentStage.archivoPdf && (
+                  <a
+                    href={currentStage.archivoPdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
+                  >
+                    ↗ Abrir en nueva pestaña
+                  </a>
+                )}
               </div>
-              <div className="card-body" style={{ textAlign: 'center', padding: '2rem' }}>
+              <div className="card-body" style={{ padding: currentStage.archivoPdf ? '0' : '2rem', textAlign: 'center' }}>
                 {currentStage.archivoPdf ? (
-                  <>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
-                      Descargá el archivo con el detalle de esta etapa.
-                    </p>
-                    <a
-                      href={currentStage.archivoPdf}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-primary"
-                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                      📄 Descargar archivo de etapa
-                    </a>
-                  </>
+                  <iframe
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`}
+                    style={{ width: '100%', height: '600px', border: 'none', borderRadius: '0 0 var(--radius) var(--radius)' }}
+                    title="Archivo de etapa"
+                  />
                 ) : (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                     No hay archivo disponible para esta etapa.
@@ -597,132 +598,132 @@ export default function EventDetail() {
             </div>
           ) : (
             <>
-              {/* Stage info bar — admin/OC only */}
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                {currentStage.cartones > 0 && (
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> cartones
-                  </span>
-                )}
-                {currentStage.metales > 0 && (
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
-                  </span>
-                )}
-                {currentStage.impactosPuntuables > 0 && (
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
-                    ✓ {currentStage.impactosPuntuables} impactos puntuables
-                  </span>
-                )}
-                {currentStage.archivoPdf && (
-                  <a
-                    href={currentStage.archivoPdf}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline btn-sm"
-                    style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
-                  >
-                    📄 Ver archivo de etapa
-                  </a>
-                )}
-              </div>
-              <div className="grid-2">
-                {/* Score entry - admin only, hidden when locked */}
-                {canScore && !isLocked(event) && (
-                  <div className="card">
-                    <div className="card-header">
-                      <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
-                    </div>
-                    <div className="card-body">
-                      {message && (
-                        <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
-                          {message}
-                        </div>
-                      )}
-
-                      {/* Squad filter */}
-                      {event.squads.length > 0 && (
-                        <div className="form-group">
-                          <label className="form-label">Filtrar por escuadra</label>
-                          <select
-                            className="form-control"
-                            value={selectedSquadFilter}
-                            onChange={e => setSelectedSquadFilter(e.target.value)}
-                          >
-                            <option value="all">Todos los tiradores</option>
-                            {event.squads.map((sq, i) => (
-                              <option key={sq._id} value={sq._id}>
-                                Escuadra {i + 1}: {sq.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      <ScoreEntry
-                        impactosPuntuables={currentStage?.impactosPuntuables || 0}
-                        key={`${activeStage}-${selectedSquadFilter}`}
-                        shooters={shootersForEntry}
-                        scoredShooterIds={blockedShooterIds}
-                        dqShooterIds={[...dqShooterIds]}
-                        stageId={activeStage}
-                        onSave={handleSaveScore}
-                        saving={saving}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Scores list for this stage */}
+            {/* Stage info bar — admin/OC only */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+              {currentStage.cartones > 0 && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> tarjetas
+                </span>
+              )}
+              {currentStage.metales > 0 && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
+                </span>
+              )}
+              {currentStage.impactosPuntuables > 0 && (
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
+                  ✓ {currentStage.impactosPuntuables} impactos puntuables
+                </span>
+              )}
+              {currentStage.archivoPdf && (
+                <a
+                  href={currentStage.archivoPdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
+                >
+                  📄 Ver etapa
+                </a>
+              )}
+            </div>
+            <div className="grid-2">
+              {/* Score entry - admin only, hidden when locked */}
+              {canScore && !isLocked(event) && (
                 <div className="card">
                   <div className="card-header">
-                    <div className="card-title">📊 Resultados — {currentStage.name}</div>
+                    <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
                   </div>
-                  <div className="table-container">
-                    {currentStage.scores.length === 0 ? (
-                      <div className="empty-state" style={{ padding: '2rem' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div>
+                  <div className="card-body">
+                    {message && (
+                      <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
+                        {message}
                       </div>
-                    ) : (
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Tirador</th>
-                            <th>Tiempo</th>
-                            <th>A</th>
-                            <th>B</th>
-                            <th>C</th>
-                            <th title="No Shoot">NS</th>
-                            <th title="Miss">Miss</th>
-                            <th title="Falta de Procedimiento">FP</th>
-                            <th title="Advertencias">Adv</th>
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentStage.scores
-                            .filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id)
-                            .sort((a, b) => a.total - b.total)
-                            .map(score => (
-                              <tr key={score._id}>
-                                <td><strong>{score.shooter?.name || '—'}</strong></td>
-                                <td>{parseFloat(score.time).toFixed(2)}</td>
-                                <td>{score.a}</td>
-                                <td>{score.b}</td>
-                                <td>{score.c}</td>
-                                <td>{score.noShoot ?? 0}</td>
-                                <td>{score.miss ?? 0}</td>
-                                <td>{score.procedural ?? 0}</td>
-                                <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                                <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
                     )}
+
+                    {/* Squad filter */}
+                    {event.squads.length > 0 && (
+                      <div className="form-group">
+                        <label className="form-label">Filtrar por escuadra</label>
+                        <select
+                          className="form-control"
+                          value={selectedSquadFilter}
+                          onChange={e => setSelectedSquadFilter(e.target.value)}
+                        >
+                          <option value="all">Todos los tiradores</option>
+                          {event.squads.map((sq, i) => (
+                            <option key={sq._id} value={sq._id}>
+                              Escuadra {i + 1}: {sq.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <ScoreEntry
+                impactosPuntuables={currentStage?.impactosPuntuables || 0}
+                      key={`${activeStage}-${selectedSquadFilter}`}
+                      shooters={shootersForEntry}
+                      scoredShooterIds={blockedShooterIds}
+                      dqShooterIds={[...dqShooterIds]}
+                      stageId={activeStage}
+                      onSave={handleSaveScore}
+                      saving={saving}
+                    />
                   </div>
                 </div>
+              )}
+
+              {/* Scores list for this stage */}
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">📊 Resultados — {currentStage.name}</div>
+                </div>
+                <div className="table-container">
+                  {currentStage.scores.length === 0 ? (
+                    <div className="empty-state" style={{ padding: '2rem' }}>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div>
+                    </div>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Tirador</th>
+                          <th>Tiempo</th>
+                          <th>A</th>
+                          <th>B</th>
+                          <th>C</th>
+                          <th title="No Shoot">NS</th>
+                          <th title="Miss">Miss</th>
+                          <th title="Falta de Procedimiento">FP</th>
+                          <th title="Advertencias">Adv</th>
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentStage.scores
+                          .filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id)
+                          .sort((a, b) => a.total - b.total)
+                          .map(score => (
+                            <tr key={score._id}>
+                              <td><strong>{score.shooter?.name || '—'}</strong></td>
+                              <td>{parseFloat(score.time).toFixed(2)}</td>
+                              <td>{score.a}</td>
+                              <td>{score.b}</td>
+                              <td>{score.c}</td>
+                              <td>{score.noShoot ?? 0}</td>
+                              <td>{score.miss ?? 0}</td>
+                              <td>{score.procedural ?? 0}</td>
+                              <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
+                              <td><strong style={score.dq ? {color:'var(--red)'} : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
+            </div>
             </>
           )}
         </div>
