@@ -7,6 +7,26 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setShowInstall(false);
+    setInstallPrompt(null);
+  };
 
   const handleLogout = () => {
     logout();
@@ -142,6 +162,13 @@ export default function Navbar() {
             </a>
 
             <div className="mobile-menu-divider" />
+
+            {showInstall && (
+              <button className="mobile-nav-link" onClick={handleInstall} style={{ color: '#2a7d4f', fontWeight: 700 }}>
+                <span className="mobile-nav-icon">📲</span>
+                Instalar app
+              </button>
+            )}
 
             <button className="mobile-nav-link mobile-logout" onClick={handleLogout}>
               <span className="mobile-nav-icon">🚪</span>
