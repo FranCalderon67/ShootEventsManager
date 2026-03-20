@@ -7,25 +7,24 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [showInstall, setShowInstall] = useState(false);
+  const [showInstall, setShowInstall] = useState(Boolean(window.__pwaInstallPrompt));
 
   React.useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      setShowInstall(true);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Check if prompt already captured before React mounted
+    if (window.__pwaInstallPrompt) setShowInstall(true);
+    // Also listen for late fires
+    const handler = () => setShowInstall(true);
+    window.addEventListener('pwaInstallReady', handler);
+    return () => window.removeEventListener('pwaInstallReady', handler);
   }, []);
 
   const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
+    const prompt = window.__pwaInstallPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
     if (outcome === 'accepted') setShowInstall(false);
-    setInstallPrompt(null);
+    window.__pwaInstallPrompt = null;
   };
 
   const handleLogout = () => {
