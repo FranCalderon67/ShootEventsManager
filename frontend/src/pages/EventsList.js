@@ -162,7 +162,7 @@ export default function EventsList() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{totalShooters} tiradores</span>
-                      {isAdmin && (
+                      {isAdmin && event.status !== 'finished' && (
                         <button
                           onClick={(e) => handleDeleteEvent(e, event)}
                           style={{ padding: '0.2rem 0.4rem', fontSize: '0.85rem', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: 'var(--radius)' }}

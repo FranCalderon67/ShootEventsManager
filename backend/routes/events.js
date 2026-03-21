@@ -79,6 +79,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
     if (isEventLocked(event)) {
       return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
     }
@@ -96,6 +97,9 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 // Delete event (admin only)
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede eliminarse' });
     await Event.findByIdAndDelete(req.params.id);
     res.json({ message: 'Evento eliminado' });
   } catch (error) {
@@ -109,6 +113,8 @@ router.post('/:id/register', auth, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (event.status === 'finished') return res.status(400).json({ message: 'El evento ya finalizó' });
+
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     if (event.registrationDeadline) {
       const dl = new Date(event.registrationDeadline);
@@ -173,6 +179,7 @@ router.put('/:id/registrations/:userId/categoria', auth, adminOnly, async (req, 
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
     if (!reg) return res.status(404).json({ message: 'Tirador no inscripto en este evento' });
@@ -197,6 +204,7 @@ router.delete('/:id/register/:userId', auth, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     if (req.user.role !== 'admin' && req.params.userId !== req.user._id.toString()) {
       return res.status(403).json({ message: 'No podés cancelar la inscripción de otro usuario' });
@@ -277,6 +285,7 @@ router.delete('/:id/squads/:squadId', auth, adminOnly, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     event.squads = event.squads.filter(s => s._id.toString() !== req.params.squadId);
     await event.save();
@@ -318,6 +327,7 @@ router.put('/:id/stages/:stageId/pdf', auth, adminOnly, uploadPdf.single('archiv
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
     const stage = event.stages.id(req.params.stageId);
     if (!stage) return res.status(404).json({ message: 'Etapa no encontrada' });
 
@@ -367,6 +377,7 @@ router.delete('/:id/stages/:stageId', auth, adminOnly, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     event.stages = event.stages.filter(s => s._id.toString() !== req.params.stageId);
     await event.save();
@@ -440,6 +451,7 @@ router.put('/:id/registrations/:userId/oc', auth, adminOnly, async (req, res) =>
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
     if (!reg) return res.status(404).json({ message: 'Tirador no inscripto en este evento' });
