@@ -41,7 +41,7 @@ function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId }) 
             <th>Cat.</th>
             <th>Div.</th>
             {stages.map((s, i) => <th key={s._id}>Et. {i + 1}</th>)}
-            <th>Puntaje</th>
+            <th>Promedio</th>
             <th>%</th>
           </tr>
         </thead>
@@ -120,7 +120,7 @@ function MyResults({ event, myRanking, rankings }) {
     <div className="card" style={{ marginBottom: '1.25rem' }}>
       <div className="card-header">
         <div className="card-title">📊 Mis resultados</div>
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Menor puntaje = mejor posición</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}></div>
       </div>
       <div className="card-body" style={{ padding: '0' }}>
         {/* Per stage breakdown */}
@@ -222,7 +222,7 @@ function MyResults({ event, myRanking, rankings }) {
         {/* Event total */}
         <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Puntaje del evento</div>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Promedio del evento</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{myRanking.stagesCompleted} / {event.stages.length} etapas completadas</div>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: myRanking.dq ? '#ef4444' : 'var(--primary)' }}>
@@ -237,40 +237,78 @@ function MyResults({ event, myRanking, rankings }) {
 // ─── Results grouped by categoria or division ──────────────────────────────────
 
 function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, currentUserId }) {
+  // Primary group: categoria or division
+  // Sub group: the other one
+  const primaryKey = groupBy === 'categoria' ? 'categoria' : 'division';
+  const subKey = groupBy === 'categoria' ? 'division' : 'categoria';
+  const primaryIcon = groupBy === 'categoria' ? '🎯' : '🔧';
+  const subIcon = groupBy === 'categoria' ? '🔧' : '🎯';
+
+  // Build nested groups: { primaryValue: { subValue: [rows] } }
   const groups = {};
   rankings.forEach(r => {
-    const key = groupBy === 'categoria' ? (r.categoria || '—') : (r.division || '—');
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(r);
+    const pk = r[primaryKey] || '—';
+    const sk = r[subKey] || '—';
+    if (!groups[pk]) groups[pk] = {};
+    if (!groups[pk][sk]) groups[pk][sk] = [];
+    groups[pk][sk].push(r);
   });
 
-  const groupKeys = Object.keys(groups).sort();
+  const primaryKeys = Object.keys(groups).sort();
 
-  if (groupKeys.length === 0) return (
+  if (primaryKeys.length === 0) return (
     <div className="empty-state"><div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay resultados disponibles</div></div>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {groupKeys.map(key => (
-        <div key={key} className="card">
-          <div className="card-header">
-            <div className="card-title" style={{ fontSize: '1rem' }}>
-              {groupBy === 'categoria' ? '🎯' : '🔧'} {key}
-              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                {groups[key].length} tirador{groups[key].length !== 1 ? 'es' : ''}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {primaryKeys.map(pk => {
+        const subGroups = groups[pk];
+        const subKeys = Object.keys(subGroups).sort();
+        const totalShooters = Object.values(subGroups).reduce((sum, arr) => sum + arr.length, 0);
+
+        return (
+          <div key={pk} className="card">
+            {/* Primary group header */}
+            <div className="card-header" style={{ background: groupBy === 'categoria' ? '#f0fdf4' : '#fffbeb', borderBottom: '2px solid var(--border)' }}>
+              <div className="card-title" style={{ fontSize: '1.05rem' }}>
+                {primaryIcon} {pk}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {totalShooters} tirador{totalShooters !== 1 ? 'es' : ''}
               </span>
             </div>
+
+            {/* Sub groups */}
+            {subKeys.map((sk, i) => (
+              <div key={sk}>
+                {/* Sub group header */}
+                <div style={{
+                  padding: '0.6rem 1rem',
+                  background: '#f9fafb',
+                  borderBottom: '1px solid var(--border)',
+                  borderTop: i > 0 ? '2px solid var(--border)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '0.5rem'
+                }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
+                    {subIcon} {sk}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    — {subGroups[sk].length} tirador{subGroups[sk].length !== 1 ? 'es' : ''}
+                  </span>
+                </div>
+                <RankingsTable
+                  rows={subGroups[sk]}
+                  stages={stages}
+                  isAdmin={isAdmin}
+                  setEditingReg={setEditingReg}
+                  currentUserId={currentUserId}
+                />
+              </div>
+            ))}
           </div>
-          <RankingsTable
-            rows={groups[key]}
-            stages={stages}
-            isAdmin={isAdmin}
-            setEditingReg={setEditingReg}
-            currentUserId={currentUserId}
-          />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -294,7 +332,6 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
     { key: 'general', label: '🏆 Resultados Generales' },
     ...(showGrouped ? [
       { key: 'categoria', label: '🎯 Por Categoría' },
-      { key: 'division', label: '🔧 Por División' },
     ] : []),
   ];
 
@@ -323,7 +360,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
             <div className="card">
               <div className="card-header">
                 <div className="card-title">🏆 Resultados Generales</div>
-
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}></div>
               </div>
               {enriched.length === 0 ? (
                 <div className="empty-state">
@@ -353,16 +390,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
             />
           )}
 
-          {resultsTab === 'division' && (
-            <GroupedResults
-              rankings={enriched}
-              stages={event.stages}
-              groupBy="division"
-              isAdmin={isAdmin}
-              setEditingReg={setEditingReg}
-              currentUserId={user._id}
-            />
-          )}
+
         </>
       )}
 
