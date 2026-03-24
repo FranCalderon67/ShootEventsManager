@@ -10,6 +10,7 @@ import AdminPanel from './pages/AdminPanel';
 import AdminEventForm from './pages/AdminEventForm';
 import AdminUsers from './pages/AdminUsers';
 import Profile from './pages/Profile';
+import ResetPassword from './pages/ResetPassword';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth();
@@ -57,6 +58,9 @@ function AppRoutes() {
         <ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to={user ? '/events' : '/login'} replace />} />
+
+      <Route path="/reset-password" element={<ResetPassword />} />
+
     </Routes>
   );
 }
