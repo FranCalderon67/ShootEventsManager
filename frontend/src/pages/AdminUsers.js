@@ -4,6 +4,56 @@ import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = { name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' };
 
+
+// Converts YYYY-MM-DD to DD/MM/AAAA for display
+const toDisplay = (iso) => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+};
+
+// Custom date input - numeric keyboard on mobile, auto-inserts slashes
+function DateInput({ value, onChange }) {
+  const [display, setDisplay] = React.useState(toDisplay(value));
+
+  React.useEffect(() => {
+    setDisplay(toDisplay(value));
+  }, [value]);
+
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    let formatted = '';
+    if (raw.length <= 2) {
+      formatted = raw;
+    } else if (raw.length <= 4) {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+    } else {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)}`;
+    }
+    setDisplay(formatted);
+    // Convert to ISO only when complete
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4, 8);
+      onChange(`${y}-${m}-${d}`);
+    } else {
+      onChange('');
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      className="form-control"
+      value={display}
+      onChange={handleChange}
+      placeholder="DD/MM/AAAA"
+      maxLength={10}
+    />
+  );
+}
+
 // Defined OUTSIDE AdminUsers so React doesn't remount it on every render
 function UserForm({ title, data, onChange, onSubmit, onCancel, isEdit, loading }) {
   return (
@@ -43,7 +93,10 @@ function UserForm({ title, data, onChange, onSubmit, onCancel, isEdit, loading }
             </div>
             <div className="form-group">
               <label className="form-label">Fecha de nacimiento</label>
-              <input type="date" className="form-control" value={data.fechaNacimiento} onChange={e => onChange('fechaNacimiento', e.target.value)} />
+              <DateInput
+                value={data.fechaNacimiento}
+                onChange={v => onChange('fechaNacimiento', v)}
+              />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
