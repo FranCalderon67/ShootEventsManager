@@ -4,11 +4,65 @@ import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = { name: '', email: '', password: '', role: 'user', genero: '', fechaNacimiento: '' };
 
+// Defined OUTSIDE AdminUsers so React doesn't remount it on every render
+function UserForm({ title, data, onChange, onSubmit, onCancel, isEdit, loading }) {
+  return (
+    <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card-header"><div className="card-title">{title}</div></div>
+      <div className="card-body">
+        <form onSubmit={onSubmit}>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Nombre</label>
+              <input className="form-control" value={data.name} onChange={e => onChange('name', e.target.value)} required placeholder="Nombre completo" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input type="email" className="form-control" value={data.email} onChange={e => onChange('email', e.target.value)} required placeholder="email@ejemplo.com" />
+            </div>
+            {!isEdit && (
+              <div className="form-group">
+                <label className="form-label">Contraseña</label>
+                <input type="password" className="form-control" value={data.password} onChange={e => onChange('password', e.target.value)} required placeholder="Mínimo 6 caracteres" />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Rol</label>
+              <select className="form-control" value={data.role} onChange={e => onChange('role', e.target.value)}>
+                <option value="user">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Género</label>
+              <select className="form-control" value={data.genero} onChange={e => onChange('genero', e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fecha de nacimiento</label>
+              <input type="date" className="form-control" value={data.fechaNacimiento} onChange={e => onChange('fechaNacimiento', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Guardando...' : isEdit ? '💾 Guardar cambios' : 'Crear Usuario'}
+            </button>
+            <button type="button" className="btn btn-outline" onClick={onCancel}>Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editingUser, setEditingUser] = useState(null); // user being edited
+  const [editingUser, setEditingUser] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,59 +127,6 @@ export default function AdminUsers() {
     }
   };
 
-  const fieldSet = (obj, setObj) => (field, val) => setObj({ ...obj, [field]: val });
-
-  const UserForm = ({ title, data, onChange, onSubmit, onCancel, isEdit }) => (
-    <div className="card" style={{ marginBottom: '1.5rem' }}>
-      <div className="card-header"><div className="card-title">{title}</div></div>
-      <div className="card-body">
-        <form onSubmit={onSubmit}>
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Nombre</label>
-              <input className="form-control" value={data.name} onChange={e => onChange('name', e.target.value)} required placeholder="Nombre completo" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input type="email" className="form-control" value={data.email} onChange={e => onChange('email', e.target.value)} required placeholder="email@ejemplo.com" />
-            </div>
-            {!isEdit && (
-              <div className="form-group">
-                <label className="form-label">Contraseña</label>
-                <input type="password" className="form-control" value={data.password} onChange={e => onChange('password', e.target.value)} required placeholder="Mínimo 6 caracteres" />
-              </div>
-            )}
-            <div className="form-group">
-              <label className="form-label">Rol</label>
-              <select className="form-control" value={data.role} onChange={e => onChange('role', e.target.value)}>
-                <option value="user">Usuario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Género</label>
-              <select className="form-control" value={data.genero} onChange={e => onChange('genero', e.target.value)}>
-                <option value="">— Seleccionar —</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Femenino">Femenino</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha de nacimiento</label>
-              <input type="date" className="form-control" value={data.fechaNacimiento} onChange={e => onChange('fechaNacimiento', e.target.value)} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Guardando...' : isEdit ? '💾 Guardar cambios' : 'Crear Usuario'}
-            </button>
-            <button type="button" className="btn btn-outline" onClick={onCancel}>Cancelar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-
   return (
     <div className="page">
       {/* Edit modal */}
@@ -139,6 +140,7 @@ export default function AdminUsers() {
               onSubmit={handleSaveEdit}
               onCancel={() => setEditingUser(null)}
               isEdit={true}
+              loading={loading}
             />
           </div>
         </div>
@@ -162,6 +164,7 @@ export default function AdminUsers() {
           onSubmit={handleCreate}
           onCancel={() => { setShowForm(false); setForm(EMPTY_FORM); }}
           isEdit={false}
+          loading={loading}
         />
       )}
 
