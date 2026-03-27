@@ -20,7 +20,7 @@ const RankBadge = ({ index, dq }) => {
 
 // ─── Shared table component ────────────────────────────────────────────────────
 
-function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId }) {
+function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId, showHeader = true }) {
   const nonDqRows = rows.filter(r => !r.dq);
   // Leader is first non-DQ row with a valid average
   const leaderAverage = nonDqRows.filter(r => r.average !== null && r.average !== undefined).reduce((min, r) => r.average < min ? r.average : min, Infinity) || null;
@@ -34,17 +34,17 @@ function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId }) 
   return (
     <div className="table-container">
       <table>
-        <thead>
+        {showHeader && <thead>
           <tr>
             <th>#</th>
             <th>Tirador</th>
             <th>Cat.</th>
             <th>Div.</th>
             {stages.map((s, i) => <th key={s._id}>Et. {i + 1}</th>)}
-            <th>Promedio</th>
+            <th>Resultado final</th>
             <th>%</th>
           </tr>
-        </thead>
+        </thead>}
         <tbody>
           {rows.map((r) => {
             const rowDq = r.dq;
@@ -222,7 +222,7 @@ function MyResults({ event, myRanking, rankings }) {
         {/* Event total */}
         <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Promedio del evento</div>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', fontWeight: 700 }}>Resultado final</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{myRanking.stagesCompleted} / {event.stages.length} etapas completadas</div>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: myRanking.dq ? '#ef4444' : 'var(--primary)' }}>
@@ -250,9 +250,24 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
     const pk = r[primaryKey] || '—';
     const sk = r[subKey] || '—';
     if (!groups[pk]) groups[pk] = {};
+    // Add to own category
     if (!groups[pk][sk]) groups[pk][sk] = [];
     groups[pk][sk].push(r);
+    // Also duplicate into General if not already General
+    if (groupBy === 'division' && sk !== 'General') {
+      if (!groups[pk]['General']) groups[pk]['General'] = [];
+      groups[pk]['General'].push({ ...r, _isGeneralDuplicate: true });
+    }
   });
+
+  // Sort subkeys so General always appears first
+  const sortSubKeys = (keys) => {
+    const sorted = [...keys].sort();
+    if (sorted.includes('General')) {
+      return ['General', ...sorted.filter(k => k !== 'General')];
+    }
+    return sorted;
+  };
 
   const primaryKeys = Object.keys(groups).sort();
 
@@ -264,48 +279,97 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {primaryKeys.map(pk => {
         const subGroups = groups[pk];
-        const subKeys = Object.keys(subGroups).sort();
+        const subKeys = sortSubKeys(Object.keys(subGroups));
         const totalShooters = Object.values(subGroups).reduce((sum, arr) => sum + arr.length, 0);
 
         return (
           <div key={pk} className="card">
-            {/* Primary group header */}
-            <div className="card-header" style={{ background: groupBy === 'categoria' ? '#f0fdf4' : '#fffbeb', borderBottom: '2px solid var(--border)' }}>
-              <div className="card-title" style={{ fontSize: '1.05rem' }}>
+            {/* Primary group header - dark blue */}
+            <div className="card-header" style={{ background: '#1e3a5f', borderBottom: '2px solid #1e3a5f' }}>
+              <div className="card-title" style={{ fontSize: '1.05rem', color: '#fff' }}>
                 {primaryIcon} {pk}
               </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.8rem', color: '#93c5fd' }}>
                 {totalShooters} tirador{totalShooters !== 1 ? 'es' : ''}
               </span>
             </div>
 
-            {/* Sub groups */}
-            {subKeys.map((sk, i) => (
-              <div key={sk}>
-                {/* Sub group header */}
-                <div style={{
-                  padding: '0.6rem 1rem',
-                  background: '#f9fafb',
-                  borderBottom: '1px solid var(--border)',
-                  borderTop: i > 0 ? '2px solid var(--border)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)' }}>
-                    {subIcon} {sk}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    — {subGroups[sk].length} tirador{subGroups[sk].length !== 1 ? 'es' : ''}
-                  </span>
-                </div>
-                <RankingsTable
-                  rows={subGroups[sk]}
-                  stages={stages}
-                  isAdmin={isAdmin}
-                  setEditingReg={setEditingReg}
-                  currentUserId={currentUserId}
-                />
-              </div>
-            ))}
+            {/* Single table: one thead + multiple tbody per category */}
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tirador</th>
+                    <th>Cat.</th>
+                    <th>Div.</th>
+                    {stages.map((s, idx) => <th key={s._id}>Et. {idx + 1}</th>)}
+                    <th>Resultado final</th>
+                    <th>%</th>
+                  </tr>
+                </thead>
+                {subKeys.map((sk, i) => {
+                  const subRows = subGroups[sk];
+                  const nonDqSub = subRows.filter(r => !r.dq);
+                  const subLeaderRaw = nonDqSub.filter(r => r.average !== null && r.average !== undefined).reduce((min, r) => r.average < min ? r.average : min, Infinity);
+                  const subLeader = subLeaderRaw === Infinity ? null : subLeaderRaw;
+                  return (
+                    <React.Fragment key={sk}>
+                      <tbody>
+                        <tr>
+                          <td colSpan={4 + stages.length + 2} style={{
+                            padding: '0.5rem 1rem',
+                            background: '#bfdbfe',
+                            borderTop: i > 0 ? '2px solid #93c5fd' : '1px solid #93c5fd',
+                            borderBottom: '1px solid #93c5fd',
+                          }}>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e3a5f' }}>{subIcon} {sk}</span>
+                            <span style={{ fontSize: '0.8rem', color: '#1e40af', marginLeft: '0.5rem' }}>— {subRows.length} tirador{subRows.length !== 1 ? 'es' : ''}</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                      <tbody>
+                        {subRows.map((r) => {
+                          const rowDq = r.dq;
+                          const idx = nonDqSub.indexOf(r);
+                          const pct = (!rowDq && r.average !== null && r.average !== undefined && subLeader !== null) ? (subLeader / r.average) * 100 : null;
+                          const isLeader = !rowDq && r.average === subLeader;
+                          return (
+                            <tr key={r.shooter._id + sk} style={{
+                              background: rowDq ? '#fef2f2' : r.shooter._id === currentUserId ? 'rgba(42,125,79,0.05)' : '',
+                              opacity: rowDq ? 0.8 : 1
+                            }}>
+                              <td>{rowDq ? <span style={{ fontSize: '1rem' }}>🟥</span> : <span className={`rank ${idx < 3 ? `rank-${idx + 1}` : ''}`}>{idx < 3 ? ['🥇', '🥈', '🥉'][idx] : idx + 1}</span>}</td>
+                              <td>
+                                <strong style={{ color: rowDq ? '#ef4444' : 'inherit', textDecoration: rowDq ? 'line-through' : 'none' }}>{r.shooter.name}</strong>
+                                {r.shooter._id === currentUserId && <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 600 }}>YO</span>}
+                                {rowDq && <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: '#ef4444', fontWeight: 700 }}>DQ</span>}
+                              </td>
+                              <td>
+                                <span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{r.categoria || '—'}</span>
+                                {isAdmin && !rowDq && setEditingReg && (
+                                  <button onClick={() => setEditingReg({ userId: r.shooter._id, categoria: r.categoria, division: r.division })}
+                                    style={{ marginLeft: '0.3rem', fontSize: '0.65rem', padding: '1px 6px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', color: '#6b7280' }}>✏️</button>
+                                )}
+                              </td>
+                              <td><span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.7rem' }}>{r.division || '—'}</span></td>
+                              {stages.map(s => (
+                                <td key={s._id}>{r.stageScores[s._id] === 'DQ' || (rowDq && r.stageScores[s._id] === undefined)
+                                  ? <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>DQ</span>
+                                  : r.stageScores[s._id] !== undefined ? parseFloat(r.stageScores[s._id]).toFixed(2) : <span style={{ color: 'var(--text-light)' }}>—</span>
+                                }</td>
+                              ))}
+                              <td><strong style={{ color: rowDq ? '#ef4444' : isLeader ? 'var(--gold)' : 'var(--text)' }}>{rowDq ? 'DQ' : r.average !== null && r.average !== undefined ? r.average.toFixed(2) : '—'}</strong></td>
+                              <td>{pct === null ? <span style={{ color: 'var(--text-light)' }}>—</span> : <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isLeader ? 'var(--primary)' : pct >= 90 ? '#ca8a04' : '#ef4444' }}>{isLeader ? '100%' : `${pct.toFixed(1)}%`}</span>}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </React.Fragment>
+                  );
+                })}
+              </table>
+            </div>
           </div>
         );
       })}
@@ -331,7 +395,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
   const tabs = [
     { key: 'general', label: '🏆 Resultados Generales' },
     ...(showGrouped ? [
-      { key: 'categoria', label: '🎯 Por Categoría' },
+      { key: 'division', label: '🔧 Por División' },
     ] : []),
   ];
 
@@ -379,11 +443,11 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
             </div>
           )}
 
-          {resultsTab === 'categoria' && (
+          {resultsTab === 'division' && (
             <GroupedResults
               rankings={enriched}
               stages={event.stages}
-              groupBy="categoria"
+              groupBy="division"
               isAdmin={isAdmin}
               setEditingReg={setEditingReg}
               currentUserId={user._id}
