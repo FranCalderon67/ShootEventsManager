@@ -25,6 +25,7 @@ export default function EventDetail() {
   const [stageMetales, setStageMetales] = useState('');
   const [stagePdf, setStagePdf] = useState(null);
   const [editingStage, setEditingStage] = useState(null); // { _id, name, cartones, metales }
+  const [editingStagePdf, setEditingStagePdf] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'stage'|'squad', id, name }
   const [showAddSquad, setShowAddSquad] = useState(false);
   const [squadName, setSquadName] = useState('');
@@ -219,11 +220,13 @@ export default function EventDetail() {
       formData.append('name', editingStage.name);
       formData.append('cartones', editingStage.cartones || 0);
       formData.append('metales', editingStage.metales || 0);
+      if (editingStagePdf) formData.append('archivoPdf', editingStagePdf);
       const res = await API.put(`/events/${id}/stages/${editingStage._id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setEvent(res.data);
       setEditingStage(null);
+      setEditingStagePdf(null);
     } catch (err) { alert(err.response?.data?.message || 'Error al editar etapa'); }
   };
 
@@ -373,8 +376,23 @@ export default function EventDetail() {
                 Impactos puntuables: <strong style={{ color: 'var(--primary)' }}>{(parseInt(editingStage.cartones) || 0) * 2 + (parseInt(editingStage.metales) || 0)}</strong>
               </div>
             ) : null}
+            <div className="form-group">
+              <label className="form-label">Archivo de etapa (PDF, JPG, PNG)</label>
+              {editingStage.archivoPdf && !editingStagePdf && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                  📎 Ya tiene archivo cargado — subí uno nuevo para reemplazarlo
+                </div>
+              )}
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="form-control"
+                style={{ padding: '0.4rem' }}
+                onChange={e => setEditingStagePdf(e.target.files[0] || null)}
+              />
+            </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setEditingStage(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => { setEditingStage(null); setEditingStagePdf(null); }} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleEditStage} disabled={!editingStage.name.trim()} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
@@ -501,7 +519,7 @@ export default function EventDetail() {
                 {isAdmin && !isLocked(event) && (
                   <>
                     <button
-                      onClick={() => setEditingStage({ _id: stage._id, name: stage.name, cartones: stage.cartones || 0, metales: stage.metales || 0 })}
+                      onClick={() => { setEditingStage({ _id: stage._id, name: stage.name, cartones: stage.cartones || 0, metales: stage.metales || 0, archivoPdf: stage.archivoPdf }); setEditingStagePdf(null); }}
                       title="Editar etapa"
                       style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}
                     >✏️</button>
