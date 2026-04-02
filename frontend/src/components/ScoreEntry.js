@@ -105,7 +105,7 @@ function DQModal({ onConfirm, onCancel }) {
   );
 }
 
-export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, onSave, saving, impactosPuntuables = 0 }) {
+export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, stageName = '', stageIndex = 0, onSave, saving, impactosPuntuables = 0 }) {
   const [selectedShooter, setSelectedShooter] = useState('');
   const [a, setA] = useState(0);
   const [metal, setMetal] = useState(0);
@@ -193,6 +193,40 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
       )}
 
       <div>
+        {/* Stage name banner */}
+        {stageName && (() => {
+          const colors = [
+            { bg: '#1e3a5f', sub: '#93c5fd' },
+            { bg: '#14532d', sub: '#86efac' },
+            { bg: '#4a1d96', sub: '#c4b5fd' },
+            { bg: '#7c2d12', sub: '#fdba74' },
+            { bg: '#164e63', sub: '#67e8f9' },
+            { bg: '#713f12', sub: '#fde68a' },
+            { bg: '#881337', sub: '#fda4af' },
+            { bg: '#1f2937', sub: '#d1d5db' },
+          ];
+          const c = colors[stageIndex % colors.length];
+          return (
+            <div style={{
+              background: c.bg,
+              borderRadius: 'var(--radius)',
+              padding: '0.875rem 1.25rem',
+              marginBottom: '1rem',
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+            }}>
+              <span style={{ fontSize: '1.25rem' }}>🎯</span>
+              <div>
+                <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: c.sub, fontWeight: 700, marginBottom: '0.15rem' }}>
+                  Etapa activa
+                </div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.01em' }}>
+                  {stageName}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Shooter selector */}
         <div className="shooter-selector">
           <label className="form-label">Tirador</label>

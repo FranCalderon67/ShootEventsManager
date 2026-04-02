@@ -3,6 +3,46 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
+// Converts DD/MM/AAAA display to YYYY-MM-DD for backend
+function DateInput({ value, onChange }) {
+  const toDisplay = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return '';
+    return `${d}/${m}/${y}`;
+  };
+
+  const [display, setDisplay] = React.useState(toDisplay(value));
+
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    let formatted = '';
+    if (raw.length <= 2) formatted = raw;
+    else if (raw.length <= 4) formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+    else formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)}`;
+    setDisplay(formatted);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4, 8);
+      onChange(`${y}-${m}-${d}`);
+    } else {
+      onChange('');
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      className="form-control"
+      value={display}
+      onChange={handleChange}
+      placeholder="DD/MM/AAAA"
+      maxLength={10}
+      required
+    />
+  );
+}
+
 export default function Login() {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
@@ -121,7 +161,7 @@ export default function Login() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Fecha de nacimiento</label>
-                  <input type="date" className="form-control" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} required />
+                  <DateInput value={fechaNacimiento} onChange={setFechaNacimiento} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email</label>

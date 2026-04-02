@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tirosport-v1';
+const CACHE_NAME = 'doubletap-v1';
 const urlsToCache = ['/', '/index.html'];
 
 self.addEventListener('install', event => {
