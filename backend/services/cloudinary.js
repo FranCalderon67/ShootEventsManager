@@ -10,17 +10,20 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: 'tirosport/etapas',
-    resource_type: 'raw',   // PDFs are raw files
-    allowed_formats: ['pdf'],
-    use_filename: true,
-    unique_filename: true,
+  params: (req, file) => {
+    const isImage = file.mimetype.startsWith('image/');
+    return {
+      folder: 'tirosport/etapas',
+      resource_type: isImage ? 'image' : 'raw',
+      allowed_formats: isImage ? ['jpg', 'jpeg', 'png'] : ['pdf'],
+      use_filename: true,
+      unique_filename: true,
+    };
   },
 });
 
 const uploadPdf = multer({
-  storage: cloudinaryStorage,
+  storage: storage,
   fileFilter: (req, file, cb) => {
     const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
     if (allowed.includes(file.mimetype)) cb(null, true);
