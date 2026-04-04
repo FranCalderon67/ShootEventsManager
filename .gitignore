@@ -5,3 +5,4 @@ backend/.env.example
 DEPLOY.md
 README.md
 frontend/src/.DS_Store
+frontend/.DS_Store
