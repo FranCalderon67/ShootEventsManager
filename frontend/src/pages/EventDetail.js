@@ -26,6 +26,7 @@ export default function EventDetail() {
   const [stagePdf, setStagePdf] = useState(null);
   const [editingStage, setEditingStage] = useState(null); // { _id, name, cartones, metales }
   const [editingStagePdf, setEditingStagePdf] = useState(null);
+  const [showStageFile, setShowStageFile] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'stage'|'squad', id, name }
   const [showAddSquad, setShowAddSquad] = useState(false);
   const [squadName, setSquadName] = useState('');
@@ -325,6 +326,32 @@ export default function EventDetail() {
 
   return (
     <div className="page">
+      {/* Stage file viewer modal - for admin/OC */}
+      {showStageFile && currentStage?.archivoPdf && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '860px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', borderBottom: '1px solid #e5e7eb' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>📄 {currentStage.name}</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <a href={currentStage.archivoPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}>↗ Abrir en nueva pestaña</a>
+                <button onClick={() => setShowStageFile(false)} style={{ border: 'none', background: 'transparent', fontSize: '1.25rem', cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}>✕</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              {/\.(jpg|jpeg|png)$/i.test(currentStage.archivoPdf) ? (
+                <img src={currentStage.archivoPdf} alt="Archivo de etapa" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              ) : (
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`}
+                  style={{ width: '100%', height: '75vh', border: 'none' }}
+                  title="Archivo de etapa"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {adminEditModal}
 
       {/* Confirm Delete Modal */}
@@ -642,15 +669,13 @@ export default function EventDetail() {
                   </span>
                 )}
                 {currentStage.archivoPdf && (
-                  <a
-                    href={currentStage.archivoPdf}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => setShowStageFile(true)}
                     className="btn btn-outline btn-sm"
-                    style={{ marginLeft: 'auto', fontSize: '0.8rem', textDecoration: 'none' }}
+                    style={{ marginLeft: 'auto', fontSize: '0.8rem' }}
                   >
                     📄 Ver etapa
-                  </a>
+                  </button>
                 )}
               </div>
               <div className="grid-2">
