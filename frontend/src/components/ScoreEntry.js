@@ -105,8 +105,9 @@ function DQModal({ onConfirm, onCancel }) {
   );
 }
 
-export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, stageName = '', stageIndex = 0, onSave, saving, impactosPuntuables = 0 }) {
+export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, stageName = '', stageIndex = 0, onSave, saving, impactosPuntuables = 0, registrations = [] }) {
   const [selectedShooter, setSelectedShooter] = useState('');
+  const [selectedDivision, setSelectedDivision] = useState(null);
   const [a, setA] = useState(0);
   const [metal, setMetal] = useState(0);
   const [b, setB] = useState(0);
@@ -149,6 +150,7 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
     const finalTime = parseFloat(time) || 0;
     onSave({
       shooter: selectedShooter, a, b, c, metal, noShoot, miss, procedural,
+      division: selectedDivision,
       warnings, dq: isDQ, time: finalTime,
       manualDQ, dqReason
     });
@@ -159,6 +161,9 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
     setA(0); setB(0); setC(0);
     setNoShoot(0); setMiss(0); setProcedural(0);
     setMetal(0); setWarnings(0); setManualDQ(false); setDqReason(''); setTime('');
+    // Auto-select active division for this shooter
+    const reg = registrations.find(r => (r.user?._id || r.user) === e.target.value);
+    setSelectedDivision(reg?.division || null);
   };
 
   const handleCheckboxClick = () => {
@@ -254,6 +259,43 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
             </div>
           )}
         </div>
+
+        {/* Division selector for dual-division shooters */}
+        {selectedShooter && (() => {
+          const reg = registrations.find(r => (r.user?._id || r.user) === selectedShooter);
+          if (!reg?.divisionAlternativa) return null;
+          return (
+            <div style={{ background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#185FA5', fontWeight: 700, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Tirador inscripto en dos divisiones — seleccioná cuál estás cargando
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {[
+                  { div: reg.division, label: 'Activa', isActive: true },
+                  { div: reg.divisionAlternativa, label: 'Alternativa', isActive: false },
+                ].map(({ div, label, isActive }) => (
+                  <button
+                    key={div}
+                    type="button"
+                    onClick={() => setSelectedDivision(div)}
+                    style={{
+                      flex: 1, padding: '0.5rem 0.75rem',
+                      border: `2px solid ${selectedDivision === div ? (isActive ? '#1D9E75' : '#378ADD') : '#d1d5db'}`,
+                      borderRadius: 'var(--radius)',
+                      background: selectedDivision === div ? (isActive ? '#EAF3DE' : '#E6F1FB') : '#fff',
+                      cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
+                      color: selectedDivision === div ? (isActive ? '#3B6D11' : '#042C53') : '#6b7280',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem',
+                    }}
+                  >
+                    <span>{div}</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* DQ Banner - warnings */}
         {warningsDQ && (

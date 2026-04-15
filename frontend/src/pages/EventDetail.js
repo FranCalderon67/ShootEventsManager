@@ -173,10 +173,10 @@ export default function EventDetail() {
     }
   };
 
-  const handleConfirmRegister = async ({ division }) => {
+  const handleConfirmRegister = async ({ division, divisionAlternativa }) => {
     setRegistering(true);
     try {
-      await API.post(`/events/${id}/register`, { division });
+      await API.post(`/events/${id}/register`, { division, divisionAlternativa: divisionAlternativa || null });
       await fetchEvent();
       setShowRegModal(false);
     } catch (err) {
@@ -697,6 +697,7 @@ export default function EventDetail() {
                         saving={saving}
                         stageName={currentStage?.name}
                         stageIndex={event.stages.findIndex(s => s._id === activeStage)}
+                        registrations={event.registrations || []}
                       />
                     </div>
                   </div>

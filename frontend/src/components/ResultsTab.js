@@ -258,6 +258,20 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
       if (!groups[pk]['General']) groups[pk]['General'] = [];
       groups[pk]['General'].push({ ...r, _isGeneralDuplicate: true });
     }
+    // Also add to alternative division group if shooter has one
+    if (groupBy === 'division' && r.divisionAlternativa) {
+      const altPk = r.divisionAlternativa;
+      if (!groups[altPk]) groups[altPk] = {};
+      const altSk = r[subKey] || '—';
+      if (!groups[altPk][altSk]) groups[altPk][altSk] = [];
+      // Add as alternative entry - won't rank
+      groups[altPk][altSk].push({ ...r, _isAlternative: true, division: altPk });
+      // Also add to General of alternative division
+      if (altSk !== 'General') {
+        if (!groups[altPk]['General']) groups[altPk]['General'] = [];
+        groups[altPk]['General'].push({ ...r, _isAlternative: true, _isGeneralDuplicate: true, division: altPk });
+      }
+    }
   });
 
   // Sort subkeys so General always appears first
@@ -310,7 +324,7 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
                 </thead>
                 {subKeys.map((sk, i) => {
                   const subRows = subGroups[sk];
-                  const nonDqSub = subRows.filter(r => !r.dq);
+                  const nonDqSub = subRows.filter(r => !r.dq && !r._isAlternative);
                   const subLeaderRaw = nonDqSub.filter(r => r.average !== null && r.average !== undefined).reduce((min, r) => r.average < min ? r.average : min, Infinity);
                   const subLeader = subLeaderRaw === Infinity ? null : subLeaderRaw;
                   return (
@@ -334,16 +348,18 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
                           const idx = nonDqSub.indexOf(r);
                           const pct = (!rowDq && r.average !== null && r.average !== undefined && subLeader !== null) ? (subLeader / r.average) * 100 : null;
                           const isLeader = !rowDq && r.average === subLeader;
+                          const isAlt = r._isAlternative;
                           return (
-                            <tr key={r.shooter._id + sk} style={{
-                              background: rowDq ? '#fef2f2' : r.shooter._id === currentUserId ? 'rgba(42,125,79,0.05)' : '',
-                              opacity: rowDq ? 0.8 : 1
+                            <tr key={r.shooter._id + sk + (isAlt ? '_alt' : '')} style={{
+                              background: rowDq ? '#fef2f2' : isAlt ? '#f0f7ff' : r.shooter._id === currentUserId ? 'rgba(42,125,79,0.05)' : '',
+                              opacity: rowDq ? 0.8 : isAlt ? 0.85 : 1
                             }}>
-                              <td>{rowDq ? <span style={{ fontSize: '1rem' }}>🟥</span> : <span className={`rank ${idx < 3 ? `rank-${idx + 1}` : ''}`}>{idx < 3 ? ['🥇', '🥈', '🥉'][idx] : idx + 1}</span>}</td>
+                              <td>{rowDq ? <span style={{ fontSize: '1rem' }}>🟥</span> : isAlt ? <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>—</span> : <span className={`rank ${idx < 3 ? `rank-${idx + 1}` : ''}`}>{idx < 3 ? ['🥇', '🥈', '🥉'][idx] : idx + 1}</span>}</td>
                               <td>
                                 <strong style={{ color: rowDq ? '#ef4444' : 'inherit', textDecoration: rowDq ? 'line-through' : 'none' }}>{r.shooter.name}</strong>
                                 {r.shooter._id === currentUserId && <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 600 }}>YO</span>}
                                 {rowDq && <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: '#ef4444', fontWeight: 700 }}>DQ</span>}
+                                {isAlt && <span style={{ marginLeft: '0.4rem', fontSize: '0.65rem', background: '#E6F1FB', color: '#185FA5', fontWeight: 700, padding: '1px 5px', borderRadius: '4px' }}>alt.</span>}
                               </td>
                               <td>
                                 <span className="badge" style={{ background: '#f3f4f6', color: '#374151', fontSize: '0.7rem' }}>{r.categoria || '—'}</span>
@@ -360,7 +376,7 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
                                 }</td>
                               ))}
                               <td><strong style={{ color: rowDq ? '#ef4444' : isLeader ? 'var(--gold)' : 'var(--text)' }}>{rowDq ? 'DQ' : r.average !== null && r.average !== undefined ? r.average.toFixed(2) : '—'}</strong></td>
-                              <td>{pct === null ? <span style={{ color: 'var(--text-light)' }}>—</span> : <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isLeader ? 'var(--primary)' : pct >= 90 ? '#ca8a04' : '#ef4444' }}>{isLeader ? '100%' : `${pct.toFixed(1)}%`}</span>}</td>
+                              <td>{isAlt ? <span style={{ color: 'var(--text-light)' }}>—</span> : pct === null ? <span style={{ color: 'var(--text-light)' }}>—</span> : <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isLeader ? 'var(--primary)' : pct >= 90 ? '#ca8a04' : '#ef4444' }}>{isLeader ? '100%' : `${pct.toFixed(1)}%`}</span>}</td>
                             </tr>
                           );
                         })}
@@ -386,7 +402,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
   // Enrich rankings with registration data
   const enriched = rankings.map(r => {
     const reg = event.registrations?.find(reg => (reg.user?._id || reg.user) === r.shooter._id);
-    return { ...r, categoria: reg?.categoria, division: reg?.division };
+    return { ...r, categoria: reg?.categoria, division: reg?.division, divisionAlternativa: reg?.divisionAlternativa || null };
   });
 
   const showGeneralTable = isAdmin || isFinished;

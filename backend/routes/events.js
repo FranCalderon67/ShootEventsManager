@@ -128,7 +128,7 @@ router.post('/:id/register', auth, async (req, res) => {
       ? req.body.userId
       : req.user._id.toString();
 
-    const { division } = req.body;
+    const { division, divisionAlternativa } = req.body;
     if (!division) return res.status(400).json({ message: 'La división es requerida' });
 
     // Auto-calculate categoria based on shooter's profile and event date
@@ -144,9 +144,10 @@ router.post('/:id/register', auth, async (req, res) => {
       const reg = event.registrations.find(r => r.user.toString() === userId.toString());
       reg.categoria = categoria;
       reg.division = division;
+      reg.divisionAlternativa = divisionAlternativa || null;
       reg.isOC = isOC;
     } else {
-      event.registrations.push({ user: userId, categoria, division, isOC });
+      event.registrations.push({ user: userId, categoria, division, divisionAlternativa: divisionAlternativa || null, isOC });
     }
     await event.save();
     const populated = await Event.findById(req.params.id).populate('registrations.user', 'name email').populate('squads.members', 'name email').populate('stages.scores.shooter', 'name email').populate('createdBy', 'name');
@@ -399,7 +400,7 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
     const stage = event.stages.id(req.params.stageId);
     if (!stage) return res.status(404).json({ message: 'Etapa no encontrada' });
 
-    const { shooter, a, b, c, noShoot = 0, miss = 0, procedural = 0, warnings = 0, dq = false, time } = req.body;
+    const { shooter, a, b, c, noShoot = 0, miss = 0, procedural = 0, warnings = 0, dq = false, time, division: scoreDivision } = req.body;
     const penalties = (noShoot + miss + procedural) * 5;
     const total = time + (b * 1) + (c * 3) + penalties;
 
@@ -417,7 +418,7 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
       existingScore.total = total;
       existingScore.saved = true;
     } else {
-      stage.scores.push({ shooter, a, b, c, noShoot, miss, procedural, warnings, dq, time, total, saved: true });
+      stage.scores.push({ shooter, a, b, c, noShoot, miss, procedural, warnings, dq, time, total, saved: true, division: scoreDivision || null });
     }
 
     await event.save();

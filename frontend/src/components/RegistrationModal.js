@@ -101,10 +101,14 @@ function InfoTooltip({ division }) {
 
 export default function RegistrationModal({ onConfirm, onCancel, loading, existing, categoria }) {
   const [division, setDivision] = useState(existing?.division || '');
+  const [dualDivision, setDualDivision] = useState(Boolean(existing?.divisionAlternativa));
+  const [divisionAlternativa, setDivisionAlternativa] = useState(existing?.divisionAlternativa || '');
 
   const handleSubmit = () => {
     if (!division) return alert('Seleccioná una división');
-    onConfirm({ division });
+    if (dualDivision && !divisionAlternativa) return alert('Seleccioná la división alternativa');
+    if (dualDivision && divisionAlternativa === division) return alert('Las dos divisiones no pueden ser iguales');
+    onConfirm({ division, divisionAlternativa: dualDivision ? divisionAlternativa : null });
   };
 
   return (
@@ -172,6 +176,85 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
               ))}
             </div>
           </div>
+
+          {/* Dual division checkbox */}
+          <div
+            style={{
+              background: dualDivision ? '#E6F1FB' : 'var(--color-background-secondary, #f9fafb)',
+              border: `0.5px solid ${dualDivision ? '#85B7EB' : 'var(--border, #e5e7eb)'}`,
+              borderRadius: 'var(--radius)',
+              padding: '0.75rem',
+              marginTop: '0.75rem',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onClick={() => { setDualDivision(d => !d); setDivisionAlternativa(''); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', pointerEvents: 'none' }}>
+              <input type="checkbox" checked={dualDivision} readOnly style={{ marginTop: '2px', width: '15px', height: '15px', accentColor: '#185FA5', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: dualDivision ? '#042C53' : 'var(--text)' }}>
+                  Inscribirme en dos divisiones
+                </div>
+                <div style={{ fontSize: '0.75rem', color: dualDivision ? '#185FA5' : 'var(--text-muted)', marginTop: '0.1rem' }}>
+                  Podés competir en una y registrar puntajes en la otra
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* División alternativa */}
+          {dualDivision && (
+            <div className="form-group" style={{ marginTop: '0.875rem' }}>
+              <label className="form-label">División alternativa <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(no puntúa en resultados)</span></label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                {DIVISIONES.filter(d => d !== division).map(d => (
+                  <div key={d} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDivisionAlternativa(d)}
+                      style={{
+                        width: '100%',
+                        padding: '0.625rem',
+                        border: `2px solid ${divisionAlternativa === d ? '#378ADD' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius)',
+                        background: divisionAlternativa === d ? '#E6F1FB' : '#fff',
+                        color: divisionAlternativa === d ? '#042C53' : 'var(--text)',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      {d}
+                      <span style={{ color: divisionAlternativa === d ? 'rgba(4,44,83,0.6)' : 'var(--text-muted)' }}>
+                        <InfoTooltip division={d} />
+                      </span>
+                    </button>
+                  </div>
+                ))}
+                {/* Empty placeholder for the division already selected */}
+                {DIVISIONES.filter(d => d === division).map(d => (
+                  <div key={d} style={{
+                    padding: '0.625rem',
+                    border: '1.5px dashed var(--border)',
+                    borderRadius: 'var(--radius)',
+                    background: '#f9fafb',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.875rem',
+                    textAlign: 'center',
+                    opacity: 0.5,
+                  }}>{d}</div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
