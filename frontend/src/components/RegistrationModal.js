@@ -27,9 +27,11 @@ function InfoTooltip({ division }) {
 
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <button
-        type="button"
+      <span
+        role="button"
+        tabIndex={0}
         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}
         style={{
           width: '18px', height: '18px',
           borderRadius: '50%',
@@ -49,7 +51,7 @@ function InfoTooltip({ division }) {
         aria-label={`Info ${division}`}
       >
         i
-      </button>
+      </span>
 
       {open && (
         <>
@@ -233,7 +235,7 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
                       }}
                     >
                       {d}
-                      <span style={{ color: divisionAlternativa === d ? 'rgba(4,44,83,0.6)' : 'var(--text-muted)' }}>
+                      <span onClick={e => e.stopPropagation()} style={{ color: divisionAlternativa === d ? 'rgba(4,44,83,0.6)' : 'var(--text-muted)' }}>
                         <InfoTooltip division={d} />
                       </span>
                     </button>
@@ -262,7 +264,7 @@ export default function RegistrationModal({ onConfirm, onCancel, loading, existi
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={loading || !division}
+            disabled={loading || !division || (dualDivision && !divisionAlternativa)}
           >
             {loading ? <><span className="spinner"></span> Inscribiendo...</> : 'Confirmar inscripción'}
           </button>

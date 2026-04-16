@@ -52,10 +52,10 @@ export default function EventsList() {
     }
   };
 
-  const handleConfirmRegister = async ({ categoria, division }) => {
+  const handleConfirmRegister = async ({ categoria, division, divisionAlternativa }) => {
     setRegistering(true);
     try {
-      await API.post(`/events/${modalEvent._id}/register`, { categoria, division });
+      await API.post(`/events/${modalEvent._id}/register`, { categoria, division, divisionAlternativa: divisionAlternativa || null });
       setModalEvent(null);
       fetchEvents();
     } catch (err) {

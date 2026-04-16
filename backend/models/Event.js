@@ -17,7 +17,7 @@ const scoreSchema = new mongoose.Schema({
   division: { type: String, enum: ['Custom', 'Stock', 'Optic'], default: null }
 });
 
-scoreSchema.pre('save', function(next) {
+scoreSchema.pre('save', function (next) {
   const penalties = (this.noShoot + this.miss + this.procedural) * 5;
   this.total = this.time + (this.b * 1) + (this.c * 3) + penalties;
   next();
@@ -42,7 +42,7 @@ const registrationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   categoria: { type: String, enum: ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'], required: true },
   division: { type: String, enum: ['Custom', 'Stock', 'Optic'], required: true },
-  divisionAlternativa: { type: String, enum: ['Custom', 'Stock', 'Optic'], default: null },
+  divisionAlternativa: { type: String, enum: ['Custom', 'Stock', 'Optic', null], default: null },
   isOC: { type: Boolean, default: false },
   dq: { type: Boolean, default: false },
   dqReason: { type: String, default: '' }
