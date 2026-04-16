@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { calcCategoria as calcCategoriaUtil } from '../utils/calcCategoria';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -45,20 +46,7 @@ export default function EventDetail() {
   const isRegistered = (ev) => Boolean(getMyRegistration(ev));
 
   // Calculate categoria based on user profile and event date
-  const calcCategoria = () => {
-    if (!user?.genero || !user?.fechaNacimiento) return 'General';
-    if (user.genero === 'Femenino') return 'Lady';
-    const birth = new Date(user.fechaNacimiento);
-    const ref = event ? new Date(event.date) : new Date();
-    let age = ref.getFullYear() - birth.getFullYear();
-    const m = ref.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
-    if (age < 21) return 'Junior';
-    if (age >= 70) return 'Grand Senior';
-    if (age >= 65) return 'Super Senior';
-    if (age >= 55) return 'Senior';
-    return 'General';
-  };
+  const calcCategoria = () => calcCategoriaUtil(user?.genero, user?.fechaNacimiento, event?.date);
 
   // End of day in UTC-3 (Argentina) = 03:00 UTC next day
   const endOfDayUTC3 = (date) => {
@@ -68,6 +56,7 @@ export default function EventDetail() {
 
   const isLocked = (ev) => {
     if (!ev) return false;
+    if (ev.status === 'finished') return true;
     return Date.now() > endOfDayUTC3(ev.date);
   };
 

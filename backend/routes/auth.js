@@ -36,32 +36,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Google OAuth login/register (via userinfo from access token)
-router.post('/google-token', async (req, res) => {
-  try {
-    const { googleId, email, name } = req.body;
-    if (!email || !googleId) return res.status(400).json({ message: 'Datos de Google requeridos' });
-
-    let user = await User.findOne({ email });
-    if (!user) {
-      user = new User({
-        name,
-        email,
-        password: googleId + (process.env.JWT_SECRET || 'secret'),
-        role: 'user',
-        googleId,
-      });
-      await user.save();
-      sendWelcomeMail({ name: user.name, email: user.email });
-    }
-
-    res.json({ token: generateToken(user._id), user });
-  } catch (error) {
-    console.error('Google auth error:', error.message);
-    res.status(401).json({ message: 'Error al autenticar con Google' });
-  }
-});
-
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -75,8 +49,6 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-// Reset password endpoint to add to auth.js
 
 // Reset password
 router.post('/reset-password', async (req, res) => {

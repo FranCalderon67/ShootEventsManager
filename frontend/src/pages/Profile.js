@@ -2,21 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
-const calcCategoria = (genero, fechaNacimiento) => {
-  if (!genero || !fechaNacimiento) return null;
-  if (genero === 'Femenino') return 'Lady';
-  const birth = new Date(fechaNacimiento);
-  const ref = new Date();
-  let age = ref.getFullYear() - birth.getFullYear();
-  const m = ref.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
-  if (age < 21) return 'Junior';
-  if (age >= 70) return 'Grand Senior';
-  if (age >= 65) return 'Super Senior';
-  if (age >= 55) return 'Senior';
-  return 'General';
-};
-
 const CATEGORIA_COLORS = {
   'Lady':        { bg: '#fdf2f8', border: '#f9a8d4', color: '#9d174d' },
   'Junior':      { bg: '#eff6ff', border: '#93c5fd', color: '#1d4ed8' },

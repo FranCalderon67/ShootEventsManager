@@ -17,9 +17,9 @@ const parseLocalDate = (dateStr) => {
 
 // Event is locked after end of day in Argentina (UTC-3) = 03:00 UTC next day
 const isEventLocked = (event) => {
+  if (event.status === 'finished') return true;
   const d = new Date(event.date);
   const endOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
-  console.log(`[isEventLocked] event.date=${event.date} endOfDay=${new Date(endOfDay).toISOString()} now=${new Date().toISOString()} locked=${Date.now() > endOfDay}`);
   return Date.now() > endOfDay;
 };
 
@@ -80,9 +80,6 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
-    if (isEventLocked(event)) {
-      return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
-    }
     const updates = { ...req.body };
     if (updates.date) updates.date = parseLocalDate(updates.date);
     if (updates.registrationDeadline) updates.registrationDeadline = parseLocalDate(updates.registrationDeadline);
@@ -405,10 +402,12 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
     const total = time + (b * 1) + (c * 3) + penalties;
 
     const existingScore = stage.scores.find(s => s.shooter.toString() === shooter);
+    const { metal = 0 } = req.body;
     if (existingScore) {
       existingScore.a = a;
       existingScore.b = b;
       existingScore.c = c;
+      existingScore.metal = metal;
       existingScore.noShoot = noShoot;
       existingScore.miss = miss;
       existingScore.procedural = procedural;
@@ -417,6 +416,7 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
       existingScore.time = time;
       existingScore.total = total;
       existingScore.saved = true;
+      if (scoreDivision) existingScore.division = scoreDivision;
     } else {
       stage.scores.push({ shooter, a, b, c, noShoot, miss, procedural, warnings, dq, time, total, saved: true, division: scoreDivision || null });
     }

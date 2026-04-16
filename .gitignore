@@ -6,3 +6,4 @@ DEPLOY.md
 README.md
 frontend/src/.DS_Store
 frontend/.DS_Store
+backend/__tests__
