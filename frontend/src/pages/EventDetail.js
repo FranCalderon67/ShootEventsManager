@@ -299,8 +299,37 @@ export default function EventDetail() {
     ? allShooters
     : (event.squads.find(s => s._id === selectedSquadFilter)?.members || []);
 
-  // Shooters already scored in current stage (to block them in selector)
-  const scoredShooterIds = currentStage?.scores.filter(s => s.saved).map(s => s.shooter?._id || s.shooter) || [];
+  // Shooters already scored in current stage — per division for dual-division shooters
+  // Returns a Set of "shooterId_division" keys that are already scored
+  const scoredDivisionKeys = new Set(
+    (currentStage?.scores || [])
+      .filter(s => s.saved)
+      .flatMap(s => {
+        const uid = s.shooter?._id || s.shooter;
+        if (s.division) return [`${uid}_${s.division}`];
+        // Legacy score without division — find shooter's registration and mark their active division
+        const reg = (event.registrations || []).find(r => (r.user?._id || r.user) === uid);
+        if (reg?.division) return [`${uid}_${reg.division}`];
+        return [uid];
+      })
+  );
+
+  // A shooter is fully blocked only when all their divisions are scored
+  const scoredShooterIds = (() => {
+    if (!currentStage?.scores) return [];
+    const savedScores = currentStage.scores.filter(s => s.saved);
+    return (event.registrations || [])
+      .filter(reg => {
+        const uid = reg.user?._id || reg.user;
+        const shooterScores = savedScores.filter(s => (s.shooter?._id || s.shooter) === uid);
+        if (shooterScores.length === 0) return false;
+        if (!reg.divisionAlternativa) return true;
+        const hasPrimary = shooterScores.some(s => s.division === reg.division || !s.division);
+        const hasAlternative = shooterScores.some(s => s.division === reg.divisionAlternativa);
+        return hasPrimary && hasAlternative;
+      })
+      .map(reg => reg.user?._id || reg.user);
+  })();
 
   // Shooters DQ: via warnings in any stage OR manual DQ in registration
   const dqShooterIds = new Set([
@@ -712,6 +741,7 @@ export default function EventDetail() {
                         stageName={currentStage?.name}
                         stageIndex={event.stages.findIndex(s => s._id === activeStage)}
                         registrations={event.registrations || []}
+                        scoredDivisionKeys={scoredDivisionKeys}
                       />
                     </div>
                   </div>

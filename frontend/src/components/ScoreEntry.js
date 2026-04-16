@@ -105,7 +105,7 @@ function DQModal({ onConfirm, onCancel }) {
   );
 }
 
-export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, stageName = '', stageIndex = 0, onSave, saving, impactosPuntuables = 0, registrations = [] }) {
+export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterIds = [], stageId, stageName = '', stageIndex = 0, onSave, saving, impactosPuntuables = 0, registrations = [], scoredDivisionKeys = new Set() }) {
   const [selectedShooter, setSelectedShooter] = useState('');
   const [selectedDivision, setSelectedDivision] = useState(null);
   const [a, setA] = useState(0);
@@ -273,25 +273,30 @@ export default function ScoreEntry({ shooters, scoredShooterIds = [], dqShooterI
                 {[
                   { div: reg.division, label: 'Activa', isActive: true },
                   { div: reg.divisionAlternativa, label: 'Alternativa', isActive: false },
-                ].map(({ div, label, isActive }) => (
-                  <button
-                    key={div}
-                    type="button"
-                    onClick={() => setSelectedDivision(div)}
-                    style={{
-                      flex: 1, padding: '0.5rem 0.75rem',
-                      border: `2px solid ${selectedDivision === div ? (isActive ? '#1D9E75' : '#378ADD') : '#d1d5db'}`,
-                      borderRadius: 'var(--radius)',
-                      background: selectedDivision === div ? (isActive ? '#EAF3DE' : '#E6F1FB') : '#fff',
-                      cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-                      color: selectedDivision === div ? (isActive ? '#3B6D11' : '#042C53') : '#6b7280',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem',
-                    }}
-                  >
-                    <span>{div}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>{label}</span>
-                  </button>
-                ))}
+                ].map(({ div, label, isActive }) => {
+                  const scored = scoredDivisionKeys.has(`${selectedShooter}_${div}`);
+                  return (
+                    <button
+                      key={div}
+                      type="button"
+                      onClick={() => !scored && setSelectedDivision(div)}
+                      disabled={scored}
+                      style={{
+                        flex: 1, padding: '0.5rem 0.75rem',
+                        border: `2px solid ${scored ? '#e5e7eb' : selectedDivision === div ? (isActive ? '#1D9E75' : '#378ADD') : '#d1d5db'}`,
+                        borderRadius: 'var(--radius)',
+                        background: scored ? '#f9fafb' : selectedDivision === div ? (isActive ? '#EAF3DE' : '#E6F1FB') : '#fff',
+                        cursor: scored ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.875rem',
+                        color: scored ? '#9ca3af' : selectedDivision === div ? (isActive ? '#3B6D11' : '#042C53') : '#6b7280',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem',
+                        opacity: scored ? 0.6 : 1,
+                      }}
+                    >
+                      <span>{div}</span>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>{scored ? '✓ cargado' : label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );

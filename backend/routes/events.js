@@ -17,9 +17,9 @@ const parseLocalDate = (dateStr) => {
 
 // Event is locked after end of day in Argentina (UTC-3) = 03:00 UTC next day
 const isEventLocked = (event) => {
-  if (event.status === 'finished') return true;
   const d = new Date(event.date);
   const endOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
+  console.log(`[isEventLocked] event.date=${event.date} endOfDay=${new Date(endOfDay).toISOString()} now=${new Date().toISOString()} locked=${Date.now() > endOfDay}`);
   return Date.now() > endOfDay;
 };
 
@@ -80,6 +80,9 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
+    if (isEventLocked(event)) {
+      return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
+    }
     const updates = { ...req.body };
     if (updates.date) updates.date = parseLocalDate(updates.date);
     if (updates.registrationDeadline) updates.registrationDeadline = parseLocalDate(updates.registrationDeadline);
@@ -401,13 +404,14 @@ router.post('/:id/stages/:stageId/scores', auth, adminOrOC, async (req, res) => 
     const penalties = (noShoot + miss + procedural) * 5;
     const total = time + (b * 1) + (c * 3) + penalties;
 
-    const existingScore = stage.scores.find(s => s.shooter.toString() === shooter);
-    const { metal = 0 } = req.body;
+    const existingScore = stage.scores.find(s =>
+      s.shooter.toString() === shooter &&
+      (scoreDivision ? s.division === scoreDivision : !s.division || s.division === null)
+    );
     if (existingScore) {
       existingScore.a = a;
       existingScore.b = b;
       existingScore.c = c;
-      existingScore.metal = metal;
       existingScore.noShoot = noShoot;
       existingScore.miss = miss;
       existingScore.procedural = procedural;
@@ -506,60 +510,77 @@ router.get('/:id/rankings', auth, async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
 
     const stageCount = event.stages.length;
-    const registrations = event.registrations || [];
     if (stageCount === 0) return res.json([]);
 
-    // Build map of manually DQ'd shooters from registrations
     const manualDqIds = new Set(
       event.registrations
         .filter(r => r.dq && r.user)
         .map(r => r.user._id?.toString() || r.user.toString())
     );
 
-    const shooterMap = {};
+    // Build a map keyed by "shooterId_division" to separate scores per division
+    const buildMap = (filterDivision) => {
+      const map = {};
 
-    // Add all registered shooters to map first (so DQ ones appear even with no scores)
-    event.registrations.forEach(reg => {
-      if (!reg.user) return;
-      const id = reg.user._id?.toString() || reg.user.toString();
-      if (!id) return;
-      if (!shooterMap[id]) {
-        shooterMap[id] = {
-          shooter: reg.user,
-          stageScores: {},
-          totalSum: 0,
-          stagesCompleted: 0,
-          dq: reg.dq || false
-        };
-      }
-    });
-
-    event.stages.forEach(stage => {
-      stage.scores.filter(s => s.saved && s.shooter).forEach(score => {
-        const id = score.shooter._id?.toString() || score.shooter.toString();
-        if (!id) return;
-        if (!shooterMap[id]) {
-          shooterMap[id] = {
-            shooter: score.shooter,
+      event.registrations.forEach(reg => {
+        if (!reg.user) return;
+        const id = reg.user._id?.toString() || reg.user.toString();
+        const regDiv = filterDivision === 'active' ? reg.division : reg.divisionAlternativa;
+        if (!regDiv) return;
+        const key = `${id}_${regDiv}`;
+        if (!map[key]) {
+          map[key] = {
+            shooter: reg.user,
+            division: regDiv,
+            divisionAlternativa: filterDivision === 'active' ? reg.divisionAlternativa : null,
+            isAlternative: filterDivision === 'alternative',
             stageScores: {},
             totalSum: 0,
             stagesCompleted: 0,
-            dq: manualDqIds.has(id)
+            dq: reg.dq || false
           };
         }
-        // Mark stage score as DQ if score.dq (warnings) OR manual DQ
-        const stageDq = score.dq || manualDqIds.has(id);
-        shooterMap[id].stageScores[stage._id.toString()] = stageDq ? 'DQ' : score.total;
-        if (!stageDq) {
-          shooterMap[id].totalSum += score.total;
-          shooterMap[id].stagesCompleted += 1;
-        }
-        if (score.dq) shooterMap[id].dq = true; // warnings DQ also marks overall
       });
-    });
 
-    const rankings = Object.values(shooterMap).map(entry => ({
+      event.stages.forEach(stage => {
+        stage.scores.filter(s => s.saved && s.shooter).forEach(score => {
+          const id = score.shooter._id?.toString() || score.shooter.toString();
+          const reg = event.registrations.find(r => (r.user._id?.toString() || r.user.toString()) === id);
+          if (!reg) return;
+
+          const targetDiv = filterDivision === 'active' ? reg.division : reg.divisionAlternativa;
+          if (!targetDiv) return;
+
+          // Match score to division
+          const scoreDiv = score.division;
+          const matches = scoreDiv ? scoreDiv === targetDiv : filterDivision === 'active';
+          if (!matches) return;
+
+          const key = `${id}_${targetDiv}`;
+          if (!map[key]) return;
+
+          const stageDq = score.dq || manualDqIds.has(id);
+          map[key].stageScores[stage._id.toString()] = stageDq ? 'DQ' : score.total;
+          if (!stageDq) {
+            map[key].totalSum += score.total;
+            map[key].stagesCompleted += 1;
+          }
+          if (score.dq) map[key].dq = true;
+        });
+      });
+
+      return map;
+    };
+
+    const activeMap = buildMap('active');
+    const altMap = buildMap('alternative');
+    const combined = { ...activeMap, ...altMap };
+
+    const rankings = Object.values(combined).map(entry => ({
       shooter: entry.shooter,
+      division: entry.division,
+      divisionAlternativa: entry.divisionAlternativa,
+      isAlternative: entry.isAlternative,
       stageScores: entry.stageScores,
       stagesCompleted: entry.stagesCompleted,
       dq: entry.dq,
@@ -567,7 +588,6 @@ router.get('/:id/rankings', auth, async (req, res) => {
       totalSum: entry.totalSum
     }));
 
-    // Non-DQ sorted by average, DQ at the end
     rankings.sort((a, b) => {
       if (a.dq && b.dq) return 0;
       if (a.dq) return 1;

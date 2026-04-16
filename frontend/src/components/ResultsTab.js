@@ -50,7 +50,7 @@ function RankingsTable({ rows, stages, isAdmin, setEditingReg, currentUserId, sh
             const rowDq = r.dq;
             const idx = nonDqRows.indexOf(r);
             return (
-              <tr key={r.shooter._id} style={{
+              <tr key={`${r.shooter._id}_${r.division || 'nodiv'}`} style={{
                 background: rowDq ? '#fef2f2' : r.shooter._id === currentUserId ? 'rgba(42,125,79,0.05)' : '',
                 opacity: rowDq ? 0.8 : 1
               }}>
@@ -258,20 +258,6 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
       if (!groups[pk]['General']) groups[pk]['General'] = [];
       groups[pk]['General'].push({ ...r, _isGeneralDuplicate: true });
     }
-    // Also add to alternative division group if shooter has one
-    if (groupBy === 'division' && r.divisionAlternativa) {
-      const altPk = r.divisionAlternativa;
-      if (!groups[altPk]) groups[altPk] = {};
-      const altSk = r[subKey] || '—';
-      if (!groups[altPk][altSk]) groups[altPk][altSk] = [];
-      // Add as alternative entry - won't rank
-      groups[altPk][altSk].push({ ...r, _isAlternative: true, division: altPk });
-      // Also add to General of alternative division
-      if (altSk !== 'General') {
-        if (!groups[altPk]['General']) groups[altPk]['General'] = [];
-        groups[altPk]['General'].push({ ...r, _isAlternative: true, _isGeneralDuplicate: true, division: altPk });
-      }
-    }
   });
 
   // Sort subkeys so General always appears first
@@ -324,7 +310,7 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
                 </thead>
                 {subKeys.map((sk, i) => {
                   const subRows = subGroups[sk];
-                  const nonDqSub = subRows.filter(r => !r.dq && !r._isAlternative);
+                  const nonDqSub = subRows.filter(r => !r.dq && !r.isAlternative);
                   const subLeaderRaw = nonDqSub.filter(r => r.average !== null && r.average !== undefined).reduce((min, r) => r.average < min ? r.average : min, Infinity);
                   const subLeader = subLeaderRaw === Infinity ? null : subLeaderRaw;
                   return (
@@ -348,7 +334,7 @@ function GroupedResults({ rankings, stages, groupBy, isAdmin, setEditingReg, cur
                           const idx = nonDqSub.indexOf(r);
                           const pct = (!rowDq && r.average !== null && r.average !== undefined && subLeader !== null) ? (subLeader / r.average) * 100 : null;
                           const isLeader = !rowDq && r.average === subLeader;
-                          const isAlt = r._isAlternative;
+                          const isAlt = r.isAlternative;
                           return (
                             <tr key={r.shooter._id + sk + (isAlt ? '_alt' : '')} style={{
                               background: rowDq ? '#fef2f2' : isAlt ? '#f0f7ff' : r.shooter._id === currentUserId ? 'rgba(42,125,79,0.05)' : '',
@@ -399,10 +385,11 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
   const isFinished = event.status === 'finished';
   const myRanking = rankings.find(r => r.shooter._id === user._id);
 
-  // Enrich rankings with registration data
+  // Enrich rankings with categoria from registrations
+  // Backend now sends division and isAlternative per entry
   const enriched = rankings.map(r => {
     const reg = event.registrations?.find(reg => (reg.user?._id || reg.user) === r.shooter._id);
-    return { ...r, categoria: reg?.categoria, division: reg?.division, divisionAlternativa: reg?.divisionAlternativa || null };
+    return { ...r, categoria: reg?.categoria };
   });
 
   const showGeneralTable = isAdmin || isFinished;
@@ -449,7 +436,7 @@ export default function ResultsTab({ event, rankings, user, isAdmin, resultsTab,
                 </div>
               ) : (
                 <RankingsTable
-                  rows={enriched}
+                  rows={enriched.filter(r => !r.isAlternative)}
                   stages={event.stages}
                   isAdmin={isAdmin}
                   setEditingReg={setEditingReg}
