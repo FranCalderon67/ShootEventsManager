@@ -14,4 +14,4 @@ const calcCategoria = (genero, fechaNacimiento, eventDate = new Date()) => {
   return 'General';
 };
 
-module.exports = { calcCategoria };
+export { calcCategoria };

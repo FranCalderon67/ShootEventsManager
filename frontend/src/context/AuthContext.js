@@ -26,20 +26,13 @@ export const AuthProvider = ({ children }) => {
     return res.data.user;
   };
 
-  const googleLogin = async (credential) => {
-    const res = await API.post('/auth/google', { credential });
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
-  };
-
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin: user?.role === 'admin', isOC: user?.isOC || false, googleLogin, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin: user?.role === 'admin', isOC: user?.isOC || false, setUser }}>
       {children}
     </AuthContext.Provider>
   );

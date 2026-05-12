@@ -9,7 +9,6 @@ const userSchema = new mongoose.Schema({
   isOC: { type: Boolean, default: false },
   genero: { type: String, enum: ['Masculino', 'Femenino'], default: null },
   fechaNacimiento: { type: Date, default: null },
-  googleId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 

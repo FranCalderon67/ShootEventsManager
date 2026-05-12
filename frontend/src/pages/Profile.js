@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import { calcCategoria } from '../utils/calcCategoria';
 
 const CATEGORIA_COLORS = {
   'Lady':        { bg: '#fdf2f8', border: '#f9a8d4', color: '#9d174d' },

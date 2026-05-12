@@ -40,7 +40,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
@@ -57,10 +58,11 @@ router.post('/reset-password', async (req, res) => {
     if (!email || !newPassword) return res.status(400).json({ message: 'Email y nueva contraseña son requeridos' });
     if (newPassword.length < 6) return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return res.status(404).json({ message: 'No existe una cuenta con ese email' });
 
-    user.password = newPassword;
+    user.password = newPassword.trim();
     await user.save();
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (error) {

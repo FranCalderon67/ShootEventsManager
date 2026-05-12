@@ -38,6 +38,7 @@ export default function EventDetail() {
   const [resultsTab, setResultsTab] = useState('general');
   const [registering, setRegistering] = useState(false);
   const [editingReg, setEditingReg] = useState(null); // { userId, categoria, division } for admin edit
+  const [editingScore, setEditingScore] = useState(null); // { score } for OC/admin score edit
 
   // ---- helpers ----
   const getMyRegistration = (ev) =>
@@ -174,6 +175,35 @@ export default function EventDetail() {
     } finally {
       setRegistering(false);
     }
+  };
+
+  const handleSaveEditedScore = async () => {
+    if (!editingScore) return;
+    setSaving(true);
+    try {
+      const { score } = editingScore;
+      await API.post(`/events/${id}/stages/${activeStage}/scores`, {
+        shooter: score.shooter?._id || score.shooter,
+        time: parseFloat(score.time) || 0,
+        a: score.a || 0,
+        b: score.b || 0,
+        c: score.c || 0,
+        metal: score.metal || 0,
+        noShoot: score.noShoot || 0,
+        miss: score.miss || 0,
+        procedural: score.procedural || 0,
+        warnings: score.warnings || 0,
+        dq: score.dq || false,
+        division: score.division || null,
+      });
+      await fetchEvent();
+      await fetchRankings();
+      setEditingScore(null);
+      setMessage('✅ Puntaje actualizado correctamente');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setMessage('❌ Error al actualizar: ' + (err.response?.data?.message || err.message));
+    } finally { setSaving(false); }
   };
 
   const handleUnregister = async () => {
@@ -365,6 +395,74 @@ export default function EventDetail() {
                   title="Archivo de etapa"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit score modal */}
+      {editingScore && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '1.5rem', maxWidth: '480px', width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '1.25rem' }}>
+              ✏️ Editar puntaje — {editingScore.score.shooter?.name}
+            </div>
+            <div className="grid-2">
+              {[
+                { label: 'Tiempo (s)', field: 'time', step: '0.01' },
+                { label: 'A', field: 'a' },
+                { label: 'B', field: 'b' },
+                { label: 'C', field: 'c' },
+                { label: 'Metal', field: 'metal' },
+                { label: 'Miss', field: 'miss' },
+                { label: 'No Shoot', field: 'noShoot' },
+                { label: 'F. Proc.', field: 'procedural' },
+                { label: 'Advertencias', field: 'warnings' },
+              ].map(({ label, field, step }) => (
+                <div className="form-group" key={field}>
+                  <label className="form-label">{label}</label>
+                  <input
+                    type="text"
+                    inputMode={step ? 'decimal' : 'numeric'}
+                    className="form-control"
+                    value={editingScore.score[field] ?? ''}
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditingScore(prev => ({
+                        ...prev,
+                        score: { ...prev.score, [field]: val === '' ? '' : (parseFloat(val) || 0) }
+                      }));
+                    }}
+                    onBlur={e => {
+                      const val = parseFloat(e.target.value);
+                      setEditingScore(prev => ({
+                        ...prev,
+                        score: { ...prev.score, [field]: isNaN(val) ? 0 : val }
+                      }));
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div style={{ background: '#f0fdf4', border: '1px solid #d1fae5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#166534', fontWeight: 600, fontSize: '0.875rem' }}>Total calculado</span>
+              <strong style={{ color: '#166534', fontSize: '1.1rem' }}>
+                {(
+                  (parseFloat(editingScore.score.time) || 0) +
+                  ((editingScore.score.b || 0) * 1) +
+                  ((editingScore.score.c || 0) * 3) +
+                  (((editingScore.score.noShoot || 0) + (editingScore.score.miss || 0) + (editingScore.score.procedural || 0)) * 5)
+                ).toFixed(2)}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setEditingScore(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleSaveEditedScore} disabled={saving} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
+                {saving ? 'Guardando...' : '💾 Guardar cambios'}
+              </button>
             </div>
           </div>
         </div>
@@ -771,6 +869,7 @@ export default function EventDetail() {
                             <th title="Falta de Procedimiento">FP</th>
                             <th title="Advertencias">Adv</th>
                             <th>Total</th>
+                            {canScore && !isLocked(event) && <th></th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -789,6 +888,15 @@ export default function EventDetail() {
                                 <td>{score.procedural ?? 0}</td>
                                 <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
                                 <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                              {canScore && !isLocked(event) && (
+                                <td>
+                                  <button
+                                    onClick={() => setEditingScore({ score: { ...score } })}
+                                    style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                    title="Editar puntaje"
+                                  >✏️</button>
+                                </td>
+                              )}
                               </tr>
                             ))}
                         </tbody>
@@ -925,7 +1033,7 @@ export default function EventDetail() {
                                     prev.includes(s._id) ? prev.filter(id => id !== s._id) : [...prev, s._id]
                                   )}
                                 >
-                                  <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>{s.name[0].toUpperCase()}</div>
+                                  <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>{s.name?.[0]?.toUpperCase() || '?'}</div>
                                   <span style={{ fontSize: '0.875rem' }}>{s.name}</span>
                                   {addMemberIds.includes(s._id) && <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 700 }}>✓</span>}
                                 </div>

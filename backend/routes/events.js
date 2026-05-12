@@ -4,7 +4,7 @@ const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 const User = require('../models/User');
 const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer');
 const { uploadPdf, deleteFile } = require('../services/cloudinary');
-const { calcCategoria } = require('./users');
+const { calcCategoria } = require('../utils/calcCategoria');
 
 const router = express.Router();
 
@@ -17,9 +17,9 @@ const parseLocalDate = (dateStr) => {
 
 // Event is locked after end of day in Argentina (UTC-3) = 03:00 UTC next day
 const isEventLocked = (event) => {
+  if (event.status === 'finished') return true;
   const d = new Date(event.date);
   const endOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
-  console.log(`[isEventLocked] event.date=${event.date} endOfDay=${new Date(endOfDay).toISOString()} now=${new Date().toISOString()} locked=${Date.now() > endOfDay}`);
   return Date.now() > endOfDay;
 };
 
@@ -80,9 +80,6 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
-    if (isEventLocked(event)) {
-      return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
-    }
     const updates = { ...req.body };
     if (updates.date) updates.date = parseLocalDate(updates.date);
     if (updates.registrationDeadline) updates.registrationDeadline = parseLocalDate(updates.registrationDeadline);
@@ -112,8 +109,6 @@ router.post('/:id/register', auth, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
-    if (event.status === 'finished') return res.status(400).json({ message: 'El evento ya finalizó' });
-
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     if (event.registrationDeadline) {
