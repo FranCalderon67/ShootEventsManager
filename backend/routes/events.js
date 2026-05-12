@@ -4,7 +4,7 @@ const { auth, adminOnly, adminOrOC } = require('../middleware/auth');
 const User = require('../models/User');
 const { sendEventRegistrationMail, sendScoreMail } = require('../services/mailer');
 const { uploadPdf, deleteFile } = require('../services/cloudinary');
-const { calcCategoria } = require('../utils/calcCategoria');
+const { calcCategoria } = require('./users');
 
 const router = express.Router();
 
@@ -17,9 +17,9 @@ const parseLocalDate = (dateStr) => {
 
 // Event is locked after end of day in Argentina (UTC-3) = 03:00 UTC next day
 const isEventLocked = (event) => {
-  if (event.status === 'finished') return true;
   const d = new Date(event.date);
   const endOfDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
+  console.log(`[isEventLocked] event.date=${event.date} endOfDay=${new Date(endOfDay).toISOString()} now=${new Date().toISOString()} locked=${Date.now() > endOfDay}`);
   return Date.now() > endOfDay;
 };
 
@@ -31,10 +31,22 @@ router.get('/', auth, async (req, res) => {
       .populate('createdBy', 'name')
       .sort({ date: -1 });
 
-    // Normalize: ensure registrations is always populated with a count
-    const normalized = events.map(ev => {
+    // Filter private events for non-admins
+    const userId = req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    const filtered = events.filter(ev => {
+      if (!ev.isPrivate) return true;
+      if (isAdmin) return true;
+      // Private: only visible if user is registered
+      return ev.registrations.some(r => {
+        const regUserId = r.user?._id?.toString() || r.user?.toString();
+        return regUserId === userId;
+      });
+    });
+
+    const normalized = filtered.map(ev => {
       const obj = ev.toObject();
-      // Support legacy registeredUsers field for old documents
       if (!obj.registrations) obj.registrations = [];
       return obj;
     });
@@ -54,6 +66,17 @@ router.get('/:id', auth, async (req, res) => {
       .populate('stages.scores.shooter', 'name email')
       .populate('createdBy', 'name');
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+
+    // Block access to private events for non-registered non-admins
+    if (event.isPrivate && req.user.role !== 'admin') {
+      const userId = req.user._id.toString();
+      const isRegistered = event.registrations.some(r => {
+        const regUserId = r.user?._id?.toString() || r.user?.toString();
+        return regUserId === userId;
+      });
+      if (!isRegistered) return res.status(403).json({ message: 'Este evento es privado' });
+    }
+
     res.json(event);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -80,6 +103,9 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
+    if (isEventLocked(event)) {
+      return res.status(403).json({ message: 'El evento está bloqueado porque ya pasó su fecha' });
+    }
     const updates = { ...req.body };
     if (updates.date) updates.date = parseLocalDate(updates.date);
     if (updates.registrationDeadline) updates.registrationDeadline = parseLocalDate(updates.registrationDeadline);
@@ -109,6 +135,8 @@ router.post('/:id/register', auth, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (event.status === 'finished') return res.status(400).json({ message: 'El evento ya finalizó' });
+
     if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado y no puede modificarse' });
 
     if (event.registrationDeadline) {
