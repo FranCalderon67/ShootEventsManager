@@ -7,6 +7,29 @@ import ScoreEntry from '../components/ScoreEntry';
 import ResultsTab from '../components/ResultsTab';
 import RegistrationModal from '../components/RegistrationModal';
 
+// Seeded pseudo-random shuffle — same stageId always produces same order
+function seededShuffle(arr, seed) {
+  const result = [...arr];
+  // Simple seeded LCG random
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  const rand = () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// Convert stageId string to a numeric seed
+function stageToSeed(stageId) {
+  if (!stageId) return 1;
+  return stageId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+}
+
 export default function EventDetail() {
   const { id } = useParams();
   const { user, isAdmin, isOC } = useAuth();
@@ -325,9 +348,12 @@ export default function EventDetail() {
   const myReg = getMyRegistration(event);
 
   // Shooters filtered by squad selection for score entry
-  const shootersForEntry = selectedSquadFilter === 'all'
+  const baseShooters = selectedSquadFilter === 'all'
     ? allShooters
     : (event.squads.find(s => s._id === selectedSquadFilter)?.members || []);
+
+  // Randomize order per stage — same stage always gives same order
+  const shootersForEntry = seededShuffle(baseShooters, stageToSeed(activeStage));
 
   // Shooters already scored in current stage — per division for dual-division shooters
   // Returns a Set of "shooterId_division" keys that are already scored
