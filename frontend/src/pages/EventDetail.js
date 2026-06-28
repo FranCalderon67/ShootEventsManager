@@ -10,7 +10,6 @@ import RegistrationModal from '../components/RegistrationModal';
 // Seeded pseudo-random shuffle — same stageId always produces same order
 function seededShuffle(arr, seed) {
   const result = [...arr];
-  // Simple seeded LCG random
   let s = seed % 2147483647;
   if (s <= 0) s += 2147483646;
   const rand = () => {
@@ -24,10 +23,29 @@ function seededShuffle(arr, seed) {
   return result;
 }
 
-// Convert stageId string to a numeric seed
 function stageToSeed(stageId) {
   if (!stageId) return 1;
   return stageId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+}
+
+// Distribute unassigned shooters evenly across squads
+function autoFillSquads(squads, unassigned) {
+  if (!squads.length || !unassigned.length) return {};
+  // Shuffle unassigned randomly
+  const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+  // Build a map of squadId -> new members to add
+  const additions = {};
+  squads.forEach(s => { additions[s._id] = []; });
+  // Distribute round-robin to keep squads balanced
+  const counts = squads.map(s => s.members?.length || 0);
+  shuffled.forEach(shooter => {
+    // Find squad with fewest members (including pending additions)
+    const idx = squads.reduce((minIdx, _, i) =>
+      (counts[i] + additions[squads[i]._id].length) <
+      (counts[minIdx] + additions[squads[minIdx]._id].length) ? i : minIdx, 0);
+    additions[squads[idx]._id].push(shooter._id);
+  });
+  return additions;
 }
 
 export default function EventDetail() {
@@ -48,10 +66,10 @@ export default function EventDetail() {
   const [stageCartones, setStageCartones] = useState('');
   const [stageMetales, setStageMetales] = useState('');
   const [stagePdf, setStagePdf] = useState(null);
-  const [editingStage, setEditingStage] = useState(null); // { _id, name, cartones, metales }
+  const [editingStage, setEditingStage] = useState(null);
   const [editingStagePdf, setEditingStagePdf] = useState(null);
   const [showStageFile, setShowStageFile] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'stage'|'squad', id, name }
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [showAddSquad, setShowAddSquad] = useState(false);
   const [squadName, setSquadName] = useState('');
   const [squadMembers, setSquadMembers] = useState([]);
@@ -60,19 +78,17 @@ export default function EventDetail() {
   const [showRegModal, setShowRegModal] = useState(false);
   const [resultsTab, setResultsTab] = useState('general');
   const [registering, setRegistering] = useState(false);
-  const [editingReg, setEditingReg] = useState(null); // { userId, categoria, division } for admin edit
-  const [editingScore, setEditingScore] = useState(null); // { score } for OC/admin score edit
+  const [editingReg, setEditingReg] = useState(null);
+  const [editingScore, setEditingScore] = useState(null);
+  const [autoFilling, setAutoFilling] = useState(false);
 
-  // ---- helpers ----
   const getMyRegistration = (ev) =>
     ev?.registrations?.find(r => (r.user?._id || r.user) === user._id);
 
   const isRegistered = (ev) => Boolean(getMyRegistration(ev));
 
-  // Calculate categoria based on user profile and event date
   const calcCategoria = () => calcCategoriaUtil(user?.genero, user?.fechaNacimiento, event?.date);
 
-  // End of day in UTC-3 (Argentina) = 03:00 UTC next day
   const endOfDayUTC3 = (date) => {
     const d = new Date(date);
     return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 3, 0, 0, 0);
@@ -98,7 +114,6 @@ export default function EventDetail() {
     return ids;
   };
 
-  // ---- data fetching ----
   const fetchEvent = async () => {
     const res = await API.get(`/events/${id}`);
     setEvent(res.data);
@@ -116,13 +131,11 @@ export default function EventDetail() {
     Promise.all([fetchEvent(), fetchRankings()]).finally(() => setLoading(false));
   }, [id]);
 
-  // ---- handlers ----
   const handleSaveScore = async (scoreData) => {
     setSaving(true);
     try {
       const { manualDQ, ...scorePayload } = scoreData;
       await API.post(`/events/${id}/stages/${activeStage}/scores`, scorePayload);
-      // If manual DQ checked, also mark shooter as DQ in their registration
       if (manualDQ) {
         await API.put(`/events/${id}/registrations/${scoreData.shooter}/dq`, { dq: true, dqReason: scoreData.dqReason || '' });
       }
@@ -175,6 +188,31 @@ export default function EventDetail() {
     } catch (err) { alert(err.response?.data?.message || 'Error al actualizar escuadra'); }
   };
 
+  // Auto-fill squads with unassigned shooters
+  const handleAutoFill = async () => {
+    if (!event.squads.length) return alert('Primero creá las escuadras');
+    const assignedIds = getAssignedIds();
+    const allShootersLocal = event.registrations?.map(r => r.user).filter(Boolean) || [];
+    const unassigned = allShootersLocal.filter(s => !assignedIds.has(s._id));
+    if (!unassigned.length) return alert('Todos los tiradores ya están asignados a una escuadra');
+
+    const additions = autoFillSquads(event.squads, unassigned);
+    setAutoFilling(true);
+    try {
+      for (const squad of event.squads) {
+        const newIds = additions[squad._id];
+        if (!newIds?.length) continue;
+        const currentIds = squad.members?.map(m => m._id) || [];
+        await API.put(`/events/${id}/squads/${squad._id}`, { members: [...currentIds, ...newIds] });
+      }
+      await fetchEvent();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al autocompletar escuadras');
+    } finally {
+      setAutoFilling(false);
+    }
+  };
+
   const handleAdminEditReg = async ({ categoria, division }) => {
     if (!editingReg) return;
     try {
@@ -208,16 +246,9 @@ export default function EventDetail() {
       await API.post(`/events/${id}/stages/${activeStage}/scores`, {
         shooter: score.shooter?._id || score.shooter,
         time: parseFloat(score.time) || 0,
-        a: score.a || 0,
-        b: score.b || 0,
-        c: score.c || 0,
-        metal: score.metal || 0,
-        noShoot: score.noShoot || 0,
-        miss: score.miss || 0,
-        procedural: score.procedural || 0,
-        warnings: score.warnings || 0,
-        dq: score.dq || false,
-        division: score.division || null,
+        a: score.a || 0, b: score.b || 0, c: score.c || 0, metal: score.metal || 0,
+        noShoot: score.noShoot || 0, miss: score.miss || 0, procedural: score.procedural || 0,
+        warnings: score.warnings || 0, dq: score.dq || false, division: score.division || null,
       });
       await fetchEvent();
       await fetchRankings();
@@ -293,14 +324,12 @@ export default function EventDetail() {
   if (!event) return <div className="page"><div className="alert alert-error">Evento no encontrado</div></div>;
 
   const currentStage = event.stages.find(s => s._id === activeStage);
-
-  const canScore = isAdmin || isOC;
+  const canScore = (isAdmin || isOC) && !isLocked(event);
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
 
   const CATEGORIAS = ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'];
   const DIVISIONES = ['Custom', 'Stock', 'Optic'];
 
-  // Admin edit registration modal — full control over categoria and division
   const adminEditModal = editingReg && (
     <div className="modal-overlay">
       <div className="modal" style={{ borderRadius: 'var(--radius-lg)', maxWidth: '420px', margin: '1rem' }}>
@@ -345,32 +374,27 @@ export default function EventDetail() {
       </div>
     </div>
   );
+
   const myReg = getMyRegistration(event);
 
-  // Shooters filtered by squad selection for score entry
   const baseShooters = selectedSquadFilter === 'all'
     ? allShooters
     : (event.squads.find(s => s._id === selectedSquadFilter)?.members || []);
 
-  // Randomize order per stage — same stage always gives same order
   const shootersForEntry = seededShuffle(baseShooters, stageToSeed(activeStage));
 
-  // Shooters already scored in current stage — per division for dual-division shooters
-  // Returns a Set of "shooterId_division" keys that are already scored
   const scoredDivisionKeys = new Set(
     (currentStage?.scores || [])
       .filter(s => s.saved)
       .flatMap(s => {
         const uid = s.shooter?._id || s.shooter;
         if (s.division) return [`${uid}_${s.division}`];
-        // Legacy score without division — find shooter's registration and mark their active division
         const reg = (event.registrations || []).find(r => (r.user?._id || r.user) === uid);
         if (reg?.division) return [`${uid}_${reg.division}`];
         return [uid];
       })
   );
 
-  // A shooter is fully blocked only when all their divisions are scored
   const scoredShooterIds = (() => {
     if (!currentStage?.scores) return [];
     const savedScores = currentStage.scores.filter(s => s.saved);
@@ -387,7 +411,6 @@ export default function EventDetail() {
       .map(reg => reg.user?._id || reg.user);
   })();
 
-  // Shooters DQ: via warnings in any stage OR manual DQ in registration
   const dqShooterIds = new Set([
     ...event.stages.flatMap(stage =>
       stage.scores.filter(s => s.dq).map(s => s.shooter?._id || s.shooter)
@@ -395,12 +418,15 @@ export default function EventDetail() {
     ...(event.registrations?.filter(r => r.dq).map(r => r.user?._id || r.user) || [])
   ]);
 
-  // Merge: blocked = scored in this stage OR DQ in any stage
   const blockedShooterIds = [...new Set([...scoredShooterIds, ...dqShooterIds])];
+
+  // Unassigned shooters count for autofill button
+  const assignedAllIds = getAssignedIds();
+  const unassignedCount = allShooters.filter(s => !assignedAllIds.has(s._id)).length;
 
   return (
     <div className="page">
-      {/* Stage file viewer modal - for admin/OC */}
+      {/* Stage file viewer modal */}
       {showStageFile && currentStage?.archivoPdf && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '860px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
@@ -415,11 +441,7 @@ export default function EventDetail() {
               {/\.(jpg|jpeg|png)$/i.test(currentStage.archivoPdf) ? (
                 <img src={currentStage.archivoPdf} alt="Archivo de etapa" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
               ) : (
-                <iframe
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`}
-                  style={{ width: '100%', height: '75vh', border: 'none' }}
-                  title="Archivo de etapa"
-                />
+                <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`} style={{ width: '100%', height: '75vh', border: 'none' }} title="Archivo de etapa" />
               )}
             </div>
           </div>
@@ -436,37 +458,17 @@ export default function EventDetail() {
             <div className="grid-2">
               {[
                 { label: 'Tiempo (s)', field: 'time', step: '0.01' },
-                { label: 'A', field: 'a' },
-                { label: 'B', field: 'b' },
-                { label: 'C', field: 'c' },
-                { label: 'Metal', field: 'metal' },
-                { label: 'Miss', field: 'miss' },
-                { label: 'No Shoot', field: 'noShoot' },
-                { label: 'F. Proc.', field: 'procedural' },
+                { label: 'A', field: 'a' }, { label: 'B', field: 'b' }, { label: 'C', field: 'c' },
+                { label: 'Metal', field: 'metal' }, { label: 'Miss', field: 'miss' },
+                { label: 'No Shoot', field: 'noShoot' }, { label: 'F. Proc.', field: 'procedural' },
                 { label: 'Advertencias', field: 'warnings' },
               ].map(({ label, field, step }) => (
                 <div className="form-group" key={field}>
                   <label className="form-label">{label}</label>
-                  <input
-                    type="text"
-                    inputMode={step ? 'decimal' : 'numeric'}
-                    className="form-control"
-                    value={editingScore.score[field] ?? ''}
-                    onFocus={e => e.target.select()}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setEditingScore(prev => ({
-                        ...prev,
-                        score: { ...prev.score, [field]: val === '' ? '' : (parseFloat(val) || 0) }
-                      }));
-                    }}
-                    onBlur={e => {
-                      const val = parseFloat(e.target.value);
-                      setEditingScore(prev => ({
-                        ...prev,
-                        score: { ...prev.score, [field]: isNaN(val) ? 0 : val }
-                      }));
-                    }}
+                  <input type="text" inputMode={step ? 'decimal' : 'numeric'} className="form-control"
+                    value={editingScore.score[field] ?? ''} onFocus={e => e.target.select()}
+                    onChange={e => { const val = e.target.value; setEditingScore(prev => ({ ...prev, score: { ...prev.score, [field]: val === '' ? '' : (parseFloat(val) || 0) } })); }}
+                    onBlur={e => { const val = parseFloat(e.target.value); setEditingScore(prev => ({ ...prev, score: { ...prev.score, [field]: isNaN(val) ? 0 : val } })); }}
                   />
                 </div>
               ))}
@@ -474,21 +476,12 @@ export default function EventDetail() {
             <div style={{ background: '#f0fdf4', border: '1px solid #d1fae5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#166534', fontWeight: 600, fontSize: '0.875rem' }}>Total calculado</span>
               <strong style={{ color: '#166534', fontSize: '1.1rem' }}>
-                {(
-                  (parseFloat(editingScore.score.time) || 0) +
-                  ((editingScore.score.b || 0) * 1) +
-                  ((editingScore.score.c || 0) * 3) +
-                  (((editingScore.score.noShoot || 0) + (editingScore.score.miss || 0) + (editingScore.score.procedural || 0)) * 5)
-                ).toFixed(2)}
+                {((parseFloat(editingScore.score.time) || 0) + ((editingScore.score.b || 0) * 1) + ((editingScore.score.c || 0) * 3) + (((editingScore.score.noShoot || 0) + (editingScore.score.miss || 0) + (editingScore.score.procedural || 0)) * 5)).toFixed(2)}
               </strong>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setEditingScore(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button onClick={handleSaveEditedScore} disabled={saving} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
-                {saving ? 'Guardando...' : '💾 Guardar cambios'}
-              </button>
+              <button onClick={() => setEditingScore(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleSaveEditedScore} disabled={saving} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{saving ? 'Guardando...' : '💾 Guardar cambios'}</button>
             </div>
           </div>
         </div>
@@ -500,22 +493,11 @@ export default function EventDetail() {
       {confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', maxWidth: '400px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '0.5rem' }}>
-              🗑️ Eliminar {confirmDelete.type === 'stage' ? 'etapa' : 'escuadra'}
-            </div>
-            <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
-              ¿Eliminar <strong style={{ color: '#111827' }}>"{confirmDelete.name}"</strong>? Esta acción no se puede deshacer.
-            </p>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827', marginBottom: '0.5rem' }}>🗑️ Eliminar {confirmDelete.type === 'stage' ? 'etapa' : 'escuadra'}</div>
+            <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: '0 0 1.25rem', lineHeight: 1.5 }}>¿Eliminar <strong style={{ color: '#111827' }}>"{confirmDelete.name}"</strong>? Esta acción no se puede deshacer.</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete.type === 'stage' ? handleDeleteStage : handleDeleteSquad}
-                style={{ flex: 1, padding: '0.75rem', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
-              >
-                Eliminar
-              </button>
+              <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={confirmDelete.type === 'stage' ? handleDeleteStage : handleDeleteSquad} style={{ flex: 1, padding: '0.75rem', background: '#dc2626', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Eliminar</button>
             </div>
           </div>
         </div>
@@ -533,7 +515,7 @@ export default function EventDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Tarjetas</label>
-                <input type="number" min="0" className="form-control" value={editingStage.cartones} onChange={e => setEditingStage({ ...editingStage, cartones: e.target.value, metales: editingStage.metales })} />
+                <input type="number" min="0" className="form-control" value={editingStage.cartones} onChange={e => setEditingStage({ ...editingStage, cartones: e.target.value })} />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Metales</label>
@@ -548,45 +530,25 @@ export default function EventDetail() {
             <div className="form-group">
               <label className="form-label">Archivo de etapa (PDF, JPG, PNG)</label>
               {editingStage.archivoPdf && !editingStagePdf && (
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                  📎 Ya tiene archivo cargado — subí uno nuevo para reemplazarlo
-                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>📎 Ya tiene archivo cargado — subí uno nuevo para reemplazarlo</div>
               )}
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="form-control"
-                style={{ padding: '0.4rem' }}
-                onChange={e => setEditingStagePdf(e.target.files[0] || null)}
-              />
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="form-control" style={{ padding: '0.4rem' }} onChange={e => setEditingStagePdf(e.target.files[0] || null)} />
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => { setEditingStage(null); setEditingStagePdf(null); }} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button onClick={handleEditStage} disabled={!editingStage.name.trim()} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
-                Guardar cambios
-              </button>
+              <button onClick={() => { setEditingStage(null); setEditingStagePdf(null); }} style={{ flex: 1, padding: '0.75rem', background: '#fff', border: '1.5px solid #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleEditStage} disabled={!editingStage.name.trim()} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Guardar cambios</button>
             </div>
           </div>
         </div>
       )}
 
       {showRegModal && (
-        <RegistrationModal
-          existing={myReg}
-          loading={registering}
-          onConfirm={handleConfirmRegister}
-          categoria={calcCategoria()}
-          onCancel={() => setShowRegModal(false)}
-        />
+        <RegistrationModal existing={myReg} loading={registering} onConfirm={handleConfirmRegister} categoria={calcCategoria()} onCancel={() => setShowRegModal(false)} />
       )}
 
       {/* Event header */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <button className="btn btn-outline btn-sm" onClick={() => navigate('/events')} style={{ marginBottom: '0.75rem' }}>
-          ← Volver
-        </button>
+        <button className="btn btn-outline btn-sm" onClick={() => navigate('/events')} style={{ marginBottom: '0.75rem' }}>← Volver</button>
         {isAdmin && isLocked(event) && (
           <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
             🔒 <strong>Evento bloqueado</strong> — La fecha del evento ya pasó. No se pueden realizar modificaciones.
@@ -601,14 +563,10 @@ export default function EventDetail() {
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 800 }}>{event.name}</h1>
             {event.location && <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>📍 {event.location}</div>}
           </div>
-
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Registration button - for everyone including admin */}
             {event.registrationDeadline && !myReg && (
               <span style={{ fontSize: '0.8rem', color: isDeadlinePassed(event) ? 'var(--red)' : 'var(--gold)', fontWeight: 600 }}>
-                {isDeadlinePassed(event)
-                  ? '🔒 Inscripciones cerradas'
-                  : `📅 Cierre inscripciones: ${new Date(event.registrationDeadline).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`}
+                {isDeadlinePassed(event) ? '🔒 Inscripciones cerradas' : `📅 Cierre: ${new Date(event.registrationDeadline).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`}
               </span>
             )}
             {event.status !== 'finished' && (
@@ -617,40 +575,22 @@ export default function EventDetail() {
                   <span className="badge badge-active">✓ Inscripto</span>
                   <span className="badge" style={{ background: '#f3f4f6', color: '#374151' }}>{myReg.categoria}</span>
                   <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>{myReg.division}</span>
-                  {!isDeadlinePassed(event) && (
-                    <button className="btn btn-outline btn-sm" onClick={() => setShowRegModal(true)}>Cambiar</button>
-                  )}
-                  {!isDeadlinePassed(event) && (
-                    <button className="btn btn-danger btn-sm" onClick={handleUnregister}>Cancelar</button>
-                  )}
-                  {isDeadlinePassed(event) && !isAdmin && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒 Cambios solo por admin</span>
-                  )}
+                  {!isDeadlinePassed(event) && <button className="btn btn-outline btn-sm" onClick={() => setShowRegModal(true)}>Cambiar</button>}
+                  {!isDeadlinePassed(event) && <button className="btn btn-danger btn-sm" onClick={handleUnregister}>Cancelar</button>}
+                  {isDeadlinePassed(event) && !isAdmin && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔒 Cambios solo por admin</span>}
                 </div>
               ) : (
-                !isDeadlinePassed(event) && (
-                  <button className="btn btn-primary btn-sm" onClick={() => setShowRegModal(true)}>
-                    + Inscribirme al evento
-                  </button>
-                )
+                !isDeadlinePassed(event) && <button className="btn btn-primary btn-sm" onClick={() => setShowRegModal(true)}>+ Inscribirme al evento</button>
               )
             )}
-            {isAdmin && !isLocked(event) && (
-              <button className="btn btn-accent btn-sm" onClick={() => navigate(`/admin/events/${id}/edit`)}>
-                Editar Evento
-              </button>
-            )}
+            {isAdmin && !isLocked(event) && <button className="btn btn-accent btn-sm" onClick={() => navigate(`/admin/events/${id}/edit`)}>Editar Evento</button>}
           </div>
         </div>
       </div>
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {[
-          { label: 'Tiradores', value: event.registrations?.length || 0 },
-          { label: 'Etapas', value: event.stages?.length || 0 },
-          { label: 'Escuadras', value: event.squads?.length || 0 },
-        ].map(stat => (
+        {[{ label: 'Tiradores', value: event.registrations?.length || 0 }, { label: 'Etapas', value: event.stages?.length || 0 }, { label: 'Escuadras', value: event.squads?.length || 0 }].map(stat => (
           <div key={stat.label} className="card" style={{ flex: '1', minWidth: '100px' }}>
             <div className="card-body" style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800 }}>{stat.value}</div>
@@ -662,15 +602,9 @@ export default function EventDetail() {
 
       {/* Tabs */}
       <div className="tabs">
-        <button className={`tab ${activeTab === 'stages' ? 'active' : ''}`} onClick={() => setActiveTab('stages')}>
-          🏁 Etapas {canScore && '/ Puntuación'}
-        </button>
-        <button className={`tab ${activeTab === 'squads' ? 'active' : ''}`} onClick={() => setActiveTab('squads')}>
-          👥 Escuadras
-        </button>
-        <button className={`tab ${activeTab === 'rankings' ? 'active' : ''}`} onClick={() => setActiveTab('rankings')}>
-          🏆 Resultados
-        </button>
+        <button className={`tab ${activeTab === 'stages' ? 'active' : ''}`} onClick={() => setActiveTab('stages')}>🏁 Etapas {canScore && '/ Puntuación'}</button>
+        <button className={`tab ${activeTab === 'squads' ? 'active' : ''}`} onClick={() => setActiveTab('squads')}>👥 Escuadras</button>
+        <button className={`tab ${activeTab === 'rankings' ? 'active' : ''}`} onClick={() => setActiveTab('rankings')}>🏆 Resultados</button>
       </div>
 
       {/* ==================== STAGES TAB ==================== */}
@@ -679,33 +613,16 @@ export default function EventDetail() {
           <div className="stage-buttons">
             {event.stages.map((stage, i) => (
               <div key={stage._id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <button
-                  className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => setActiveStage(stage._id)}
-                >
-                  {stage.name}
-                </button>
+                <button className={`btn ${activeStage === stage._id ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveStage(stage._id)}>{stage.name}</button>
                 {isAdmin && !isLocked(event) && (
                   <>
-                    <button
-                      onClick={() => { setEditingStage({ _id: stage._id, name: stage.name, cartones: stage.cartones || 0, metales: stage.metales || 0, archivoPdf: stage.archivoPdf }); setEditingStagePdf(null); }}
-                      title="Editar etapa"
-                      style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}
-                    >✏️</button>
-                    <button
-                      onClick={() => setConfirmDelete({ type: 'stage', id: stage._id, name: stage.name })}
-                      title="Eliminar etapa"
-                      style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}
-                    >🗑️</button>
+                    <button onClick={() => { setEditingStage({ _id: stage._id, name: stage.name, cartones: stage.cartones || 0, metales: stage.metales || 0, archivoPdf: stage.archivoPdf }); setEditingStagePdf(null); }} title="Editar etapa" style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}>✏️</button>
+                    <button onClick={() => setConfirmDelete({ type: 'stage', id: stage._id, name: stage.name })} title="Eliminar etapa" style={{ padding: '0.3rem 0.5rem', background: 'transparent', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)' }}>🗑️</button>
                   </>
                 )}
               </div>
             ))}
-            {isAdmin && !isLocked(event) && (
-              <button className="btn btn-gold btn-sm" onClick={() => setShowAddStage(true)}>
-                + Agregar Etapa
-              </button>
-            )}
+            {isAdmin && !isLocked(event) && <button className="btn btn-gold btn-sm" onClick={() => setShowAddStage(true)}>+ Agregar Etapa</button>}
           </div>
 
           {showAddStage && (
@@ -734,12 +651,7 @@ export default function EventDetail() {
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '0.75rem' }}>
                   <div className="form-group" style={{ flex: 2, marginBottom: 0, minWidth: '200px' }}>
                     <label className="form-label">Archivo de etapa (PDF, JPG, PNG)</label>
-                    <input
-                      type="file" accept=".pdf,.jpg,.jpeg,.png"
-                      className="form-control"
-                      onChange={e => setStagePdf(e.target.files[0] || null)}
-                      style={{ padding: '0.4rem' }}
-                    />
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="form-control" onChange={e => setStagePdf(e.target.files[0] || null)} style={{ padding: '0.4rem' }} />
                   </div>
                   <button className="btn btn-primary" onClick={handleAddStage} disabled={!stageName.trim()}>Crear</button>
                   <button className="btn btn-outline" onClick={() => { setShowAddStage(false); setStagePdf(null); }}>Cancelar</button>
@@ -749,182 +661,79 @@ export default function EventDetail() {
           )}
 
           {event.stages.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">🏁</div>
-              <div className="empty-state-text">No hay etapas creadas aún</div>
-            </div>
+            <div className="empty-state"><div className="empty-state-icon">🏁</div><div className="empty-state-text">No hay etapas creadas aún</div></div>
           ) : !currentStage ? null : !canScore ? (
-            /* Tirador: solo ve el PDF */
             <div className="card">
               <div className="card-header">
                 <div className="card-title">📄 {currentStage.name}</div>
-                {currentStage.archivoPdf && (
-                  <a
-                    href={currentStage.archivoPdf}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
-                  >
-                    ↗ Abrir en nueva pestaña
-                  </a>
-                )}
+                {currentStage.archivoPdf && <a href={currentStage.archivoPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}>↗ Abrir en nueva pestaña</a>}
               </div>
               <div className="card-body" style={{ padding: currentStage.archivoPdf ? '0' : '2rem', textAlign: 'center' }}>
                 {currentStage.archivoPdf ? (
                   /\.(jpg|jpeg|png)$/i.test(currentStage.archivoPdf) ? (
-                    <img
-                      src={currentStage.archivoPdf}
-                      alt="Archivo de etapa"
-                      style={{ width: '100%', borderRadius: '0 0 var(--radius) var(--radius)', display: 'block' }}
-                    />
+                    <img src={currentStage.archivoPdf} alt="Archivo de etapa" style={{ width: '100%', borderRadius: '0 0 var(--radius) var(--radius)', display: 'block' }} />
                   ) : (
-                    <iframe
-                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`}
-                      style={{ width: '100%', height: '600px', border: 'none', borderRadius: '0 0 var(--radius) var(--radius)' }}
-                      title="Archivo de etapa"
-                    />
+                    <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(currentStage.archivoPdf)}&embedded=true`} style={{ width: '100%', height: '600px', border: 'none', borderRadius: '0 0 var(--radius) var(--radius)' }} title="Archivo de etapa" />
                   )
-                ) : (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    No hay archivo disponible para esta etapa.
-                  </p>
-                )}
+                ) : <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay archivo disponible para esta etapa.</p>}
               </div>
             </div>
           ) : (
             <>
-              {/* Stage info bar — admin/OC only */}
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f9fafb', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                {currentStage.cartones > 0 && (
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> tarjetas
-                  </span>
-                )}
-                {currentStage.metales > 0 && (
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales
-                  </span>
-                )}
-                {currentStage.impactosPuntuables > 0 && (
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
-                    ✓ {currentStage.impactosPuntuables} impactos puntuables
-                  </span>
-                )}
-                {currentStage.archivoPdf && (
-                  <button
-                    onClick={() => setShowStageFile(true)}
-                    className="btn btn-outline btn-sm"
-                    style={{ marginLeft: 'auto', fontSize: '0.8rem' }}
-                  >
-                    📄 Ver etapa
-                  </button>
-                )}
+                {currentStage.cartones > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>📋 <strong style={{ color: 'var(--text)' }}>{currentStage.cartones}</strong> tarjetas</span>}
+                {currentStage.metales > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>🎯 <strong style={{ color: 'var(--text)' }}>{currentStage.metales}</strong> metales</span>}
+                {currentStage.impactosPuntuables > 0 && <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>✓ {currentStage.impactosPuntuables} impactos puntuables</span>}
+                {currentStage.archivoPdf && <button onClick={() => setShowStageFile(true)} className="btn btn-outline btn-sm" style={{ marginLeft: 'auto', fontSize: '0.8rem' }}>📄 Ver etapa</button>}
               </div>
               <div className="grid-2">
-                {/* Score entry - admin only, hidden when locked */}
                 {canScore && !isLocked(event) && (
                   <div className="card">
-                    <div className="card-header">
-                      <div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div>
-                    </div>
+                    <div className="card-header"><div className="card-title">📝 Cargar Puntuación — {currentStage.name}</div></div>
                     <div className="card-body">
-                      {message && (
-                        <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
-                          {message}
-                        </div>
-                      )}
-
-                      {/* Squad filter */}
+                      {message && <div className={`alert ${message.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>{message}</div>}
                       {event.squads.length > 0 && (
                         <div className="form-group">
                           <label className="form-label">Filtrar por escuadra</label>
-                          <select
-                            className="form-control"
-                            value={selectedSquadFilter}
-                            onChange={e => setSelectedSquadFilter(e.target.value)}
-                          >
+                          <select className="form-control" value={selectedSquadFilter} onChange={e => setSelectedSquadFilter(e.target.value)}>
                             <option value="all">Todos los tiradores</option>
-                            {event.squads.map((sq, i) => (
-                              <option key={sq._id} value={sq._id}>
-                                Escuadra {i + 1}: {sq.name}
-                              </option>
-                            ))}
+                            {event.squads.map((sq, i) => <option key={sq._id} value={sq._id}>Escuadra {i + 1}: {sq.name}</option>)}
                           </select>
                         </div>
                       )}
-
-                      <ScoreEntry
-                        impactosPuntuables={currentStage?.impactosPuntuables || 0}
-                        key={`${activeStage}-${selectedSquadFilter}`}
-                        shooters={shootersForEntry}
-                        scoredShooterIds={blockedShooterIds}
-                        dqShooterIds={[...dqShooterIds]}
-                        stageId={activeStage}
-                        onSave={handleSaveScore}
-                        saving={saving}
-                        stageName={currentStage?.name}
-                        stageIndex={event.stages.findIndex(s => s._id === activeStage)}
-                        registrations={event.registrations || []}
-                        scoredDivisionKeys={scoredDivisionKeys}
-                      />
+                      <ScoreEntry impactosPuntuables={currentStage?.impactosPuntuables || 0} key={`${activeStage}-${selectedSquadFilter}`} shooters={shootersForEntry} scoredShooterIds={blockedShooterIds} dqShooterIds={[...dqShooterIds]} stageId={activeStage} onSave={handleSaveScore} saving={saving} stageName={currentStage?.name} stageIndex={event.stages.findIndex(s => s._id === activeStage)} registrations={event.registrations || []} scoredDivisionKeys={scoredDivisionKeys} />
                     </div>
                   </div>
                 )}
-
-                {/* Scores list for this stage */}
                 <div className="card">
-                  <div className="card-header">
-                    <div className="card-title">📊 Resultados — {currentStage.name}</div>
-                  </div>
+                  <div className="card-header"><div className="card-title">📊 Resultados — {currentStage.name}</div></div>
                   <div className="table-container">
                     {currentStage.scores.length === 0 ? (
-                      <div className="empty-state" style={{ padding: '2rem' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div>
-                      </div>
+                      <div className="empty-state" style={{ padding: '2rem' }}><div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay puntuaciones cargadas aún</div></div>
                     ) : (
                       <table>
                         <thead>
                           <tr>
-                            <th>Tirador</th>
-                            <th>Tiempo</th>
-                            <th>A</th>
-                            <th>B</th>
-                            <th>C</th>
-                            <th title="No Shoot">NS</th>
-                            <th title="Miss">Miss</th>
-                            <th title="Falta de Procedimiento">FP</th>
-                            <th title="Advertencias">Adv</th>
-                            <th>Total</th>
+                            <th>Tirador</th><th>Tiempo</th><th>A</th><th>B</th><th>C</th>
+                            <th title="No Shoot">NS</th><th title="Miss">Miss</th><th title="Falta de Procedimiento">FP</th>
+                            <th title="Advertencias">Adv</th><th>Total</th>
                             {canScore && !isLocked(event) && <th></th>}
                           </tr>
                         </thead>
                         <tbody>
-                          {currentStage.scores
-                            .filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id)
-                            .sort((a, b) => a.total - b.total)
-                            .map(score => (
-                              <tr key={score._id}>
-                                <td><strong>{score.shooter?.name || '—'}</strong></td>
-                                <td>{parseFloat(score.time).toFixed(2)}</td>
-                                <td>{score.a}</td>
-                                <td>{score.b}</td>
-                                <td>{score.c}</td>
-                                <td>{score.noShoot ?? 0}</td>
-                                <td>{score.miss ?? 0}</td>
-                                <td>{score.procedural ?? 0}</td>
-                                <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
-                                <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
+                          {currentStage.scores.filter(s => isAdmin || (s.shooter?._id || s.shooter) === user._id).sort((a, b) => a.total - b.total).map(score => (
+                            <tr key={score._id}>
+                              <td><strong>{score.shooter?.name || '—'}</strong></td>
+                              <td>{parseFloat(score.time).toFixed(2)}</td>
+                              <td>{score.a}</td><td>{score.b}</td><td>{score.c}</td>
+                              <td>{score.noShoot ?? 0}</td><td>{score.miss ?? 0}</td><td>{score.procedural ?? 0}</td>
+                              <td>{score.warnings > 0 ? (score.dq ? '🟥' : '🟨'.repeat(score.warnings)) : '—'}</td>
+                              <td><strong style={score.dq ? { color: 'var(--red)' } : {}}>{score.dq ? 'DQ' : parseFloat(score.total).toFixed(2)}</strong></td>
                               {canScore && !isLocked(event) && (
-                                <td>
-                                  <button
-                                    onClick={() => setEditingScore({ score: { ...score } })}
-                                    style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                    title="Editar puntaje"
-                                  >✏️</button>
-                                </td>
+                                <td><button onClick={() => setEditingScore({ score: { ...score } })} style={{ padding: '0.15rem 0.4rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)' }} title="Editar puntaje">✏️</button></td>
                               )}
-                              </tr>
-                            ))}
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     )}
@@ -941,7 +750,20 @@ export default function EventDetail() {
         <div>
           {isAdmin && !isLocked(event) && (
             <div className="section-header">
-              <div></div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {/* Autofill button — only when there are squads and unassigned shooters */}
+                {event.squads.length > 0 && unassignedCount > 0 && (
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={handleAutoFill}
+                    disabled={autoFilling}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    title={`${unassignedCount} tirador${unassignedCount !== 1 ? 'es' : ''} sin escuadra`}
+                  >
+                    {autoFilling ? <><span className="spinner"></span> Asignando...</> : `🔀 Autocompletar (${unassignedCount})`}
+                  </button>
+                )}
+              </div>
               <button className="btn btn-accent" onClick={() => setShowAddSquad(true)}>+ Nueva Escuadra</button>
             </div>
           )}
@@ -964,13 +786,8 @@ export default function EventDetail() {
                     ) : (
                       <div className="user-list">
                         {available.map(s => (
-                          <div
-                            key={s._id}
-                            className={`user-item ${squadMembers.includes(s._id) ? 'selected' : ''}`}
-                            onClick={() => setSquadMembers(prev =>
-                              prev.includes(s._id) ? prev.filter(id => id !== s._id) : [...prev, s._id]
-                            )}
-                          >
+                          <div key={s._id} className={`user-item ${squadMembers.includes(s._id) ? 'selected' : ''}`}
+                            onClick={() => setSquadMembers(prev => prev.includes(s._id) ? prev.filter(id => id !== s._id) : [...prev, s._id])}>
                             <div className="user-avatar">{s.name[0].toUpperCase()}</div>
                             <span>{s.name}</span>
                             {squadMembers.includes(s._id) && <span style={{ marginLeft: 'auto', color: 'var(--green)' }}>✓</span>}
@@ -988,13 +805,8 @@ export default function EventDetail() {
             </div>
           )}
 
-
-
           {event.squads.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">👥</div>
-              <div className="empty-state-text">No hay escuadras creadas</div>
-            </div>
+            <div className="empty-state"><div className="empty-state-icon">👥</div><div className="empty-state-text">No hay escuadras creadas</div></div>
           ) : (
             <div className="event-grid">
               {event.squads.map((squad, i) => {
@@ -1002,7 +814,6 @@ export default function EventDetail() {
                 const assignedElsewhere = getAssignedIds(squad._id);
                 const availableToAdd = allShooters.filter(s => !currentMemberIds.includes(s._id) && !assignedElsewhere.has(s._id));
                 const isEditingThis = editingSquadId === squad._id;
-
                 return (
                   <div key={squad._id} className="card">
                     <div className="card-header">
@@ -1010,16 +821,10 @@ export default function EventDetail() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{squad.members?.length || 0} miembros</span>
                         {isAdmin && !isLocked(event) && !isEditingThis && availableToAdd.length > 0 && (
-                          <button className="btn btn-gold btn-sm" onClick={() => { setEditingSquadId(squad._id); setAddMemberIds([]); }}>
-                            + Agregar tirador
-                          </button>
+                          <button className="btn btn-gold btn-sm" onClick={() => { setEditingSquadId(squad._id); setAddMemberIds([]); }}>+ Agregar tirador</button>
                         )}
                         {isAdmin && !isLocked(event) && (
-                          <button
-                            onClick={() => setConfirmDelete({ type: 'squad', id: squad._id, name: squad.name })}
-                            title="Eliminar escuadra"
-                            style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-muted)' }}
-                          >🗑️</button>
+                          <button onClick={() => setConfirmDelete({ type: 'squad', id: squad._id, name: squad.name })} title="Eliminar escuadra" style={{ padding: '0.2rem 0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-muted)' }}>🗑️</button>
                         )}
                       </div>
                     </div>
@@ -1029,21 +834,15 @@ export default function EventDetail() {
                       ) : (
                         squad.members?.map(m => (
                           <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-light)' }}>
-                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>
-                              {m.name?.[0]?.toUpperCase() || '?'}
-                            </div>
+                            <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>{m.name?.[0]?.toUpperCase() || '?'}</div>
                             <span style={{ fontSize: '0.9rem' }}>{m.name}</span>
                             {isAdmin && !isLocked(event) && (
-                              <button
-                                className="btn btn-danger btn-sm"
-                                style={{ marginLeft: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-                                onClick={() => handleUpdateSquadMembers(squad._id, currentMemberIds.filter(mid => mid !== m._id))}
-                              >✕</button>
+                              <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                onClick={() => handleUpdateSquadMembers(squad._id, currentMemberIds.filter(mid => mid !== m._id))}>✕</button>
                             )}
                           </div>
                         ))
                       )}
-
                       {isAdmin && !isLocked(event) && isEditingThis && (
                         <div style={{ marginTop: '0.875rem', paddingTop: '0.875rem', borderTop: '1px solid var(--border)' }}>
                           <div className="form-label" style={{ marginBottom: '0.5rem' }}>Seleccioná tiradores a agregar:</div>
@@ -1052,13 +851,8 @@ export default function EventDetail() {
                           ) : (
                             <div className="user-list" style={{ maxHeight: '180px' }}>
                               {availableToAdd.map(s => (
-                                <div
-                                  key={s._id}
-                                  className={`user-item ${addMemberIds.includes(s._id) ? 'selected' : ''}`}
-                                  onClick={() => setAddMemberIds(prev =>
-                                    prev.includes(s._id) ? prev.filter(id => id !== s._id) : [...prev, s._id]
-                                  )}
-                                >
+                                <div key={s._id} className={`user-item ${addMemberIds.includes(s._id) ? 'selected' : ''}`}
+                                  onClick={() => setAddMemberIds(prev => prev.includes(s._id) ? prev.filter(id => id !== s._id) : [...prev, s._id])}>
                                   <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>{s.name?.[0]?.toUpperCase() || '?'}</div>
                                   <span style={{ fontSize: '0.875rem' }}>{s.name}</span>
                                   {addMemberIds.includes(s._id) && <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 700 }}>✓</span>}
@@ -1067,9 +861,7 @@ export default function EventDetail() {
                             </div>
                           )}
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                            <button className="btn btn-primary btn-sm" disabled={addMemberIds.length === 0} onClick={() => handleUpdateSquadMembers(squad._id, [...currentMemberIds, ...addMemberIds])}>
-                              Guardar
-                            </button>
+                            <button className="btn btn-primary btn-sm" disabled={addMemberIds.length === 0} onClick={() => handleUpdateSquadMembers(squad._id, [...currentMemberIds, ...addMemberIds])}>Guardar</button>
                             <button className="btn btn-outline btn-sm" onClick={() => { setEditingSquadId(null); setAddMemberIds([]); }}>Cancelar</button>
                           </div>
                         </div>
@@ -1085,17 +877,8 @@ export default function EventDetail() {
 
       {/* ==================== RESULTS TAB ==================== */}
       {activeTab === 'rankings' && (
-        <ResultsTab
-          event={event}
-          rankings={rankings}
-          user={user}
-          isAdmin={isAdmin}
-          resultsTab={resultsTab}
-          setResultsTab={setResultsTab}
-          setEditingReg={setEditingReg}
-        />
+        <ResultsTab event={event} rankings={rankings} user={user} isAdmin={isAdmin} resultsTab={resultsTab} setResultsTab={setResultsTab} setEditingReg={setEditingReg} />
       )}
-
     </div>
   );
 }
