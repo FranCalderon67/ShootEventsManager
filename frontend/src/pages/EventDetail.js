@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import ScoreEntry from '../components/ScoreEntry';
 import ResultsTab from '../components/ResultsTab';
 import RegistrationModal from '../components/RegistrationModal';
+import PowerFactorTab from '../components/PowerFactorTab';
 
 // Seeded pseudo-random shuffle — same stageId always produces same order
 function seededShuffle(arr, seed) {
@@ -605,6 +606,7 @@ export default function EventDetail() {
         <button className={`tab ${activeTab === 'stages' ? 'active' : ''}`} onClick={() => setActiveTab('stages')}>🏁 Etapas {canScore && '/ Puntuación'}</button>
         <button className={`tab ${activeTab === 'squads' ? 'active' : ''}`} onClick={() => setActiveTab('squads')}>👥 Escuadras</button>
         <button className={`tab ${activeTab === 'rankings' ? 'active' : ''}`} onClick={() => setActiveTab('rankings')}>🏆 Resultados</button>
+        {(isAdmin || isOC) && <button className={`tab ${activeTab === 'powerfactor' ? 'active' : ''}`} onClick={() => setActiveTab('powerfactor')}>⚖️ Factor de Potencia</button>}
       </div>
 
       {/* ==================== STAGES TAB ==================== */}
@@ -873,6 +875,16 @@ export default function EventDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ==================== POWER FACTOR TAB ==================== */}
+      {activeTab === 'powerfactor' && (
+        <PowerFactorTab
+          event={event}
+          isAdmin={isAdmin}
+          isOC={isOC}
+          onEventUpdate={fetchEvent}
+        />
       )}
 
       {/* ==================== RESULTS TAB ==================== */}

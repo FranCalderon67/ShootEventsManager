@@ -45,7 +45,14 @@ const registrationSchema = new mongoose.Schema({
   divisionAlternativa: { type: String, enum: ['Custom', 'Stock', 'Optic', null], default: null },
   isOC: { type: Boolean, default: false },
   dq: { type: Boolean, default: false },
-  dqReason: { type: String, default: '' }
+  dqReason: { type: String, default: '' },
+  powerFactor: {
+    velocidades: { type: [Number], default: [] },
+    pesoProyectil: { type: Number, default: null },
+    resultado: { type: Number, default: null },
+    aprobado: { type: Boolean, default: null },
+    medido: { type: Boolean, default: false }
+  }
 });
 
 const eventSchema = new mongoose.Schema({

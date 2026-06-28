@@ -627,3 +627,65 @@ router.get('/:id/rankings', auth, async (req, res) => {
 });
 
 module.exports = router;
+
+// ── POWER FACTOR ─────────────────────────────────────────────────────────────
+
+// Get suggested shooters for power factor (10% random)
+router.get('/:id/powerfactor/suggestions', auth, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).populate('registrations.user', 'name email');
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    const registered = event.registrations.filter(r => !r.dq && r.user);
+    const count = Math.max(1, Math.ceil(registered.length * 0.1));
+    // Fisher-Yates shuffle
+    const shuffled = [...registered].sort(() => Math.random() - 0.5);
+    const suggested = shuffled.slice(0, count).map(r => r.user._id);
+    res.json({ suggested, total: registered.length, count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Save power factor measurement for a shooter
+router.put('/:id/registrations/:userId/powerfactor', auth, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+    if (isEventLocked(event)) return res.status(403).json({ message: 'El evento está finalizado' });
+
+    const reg = event.registrations.find(r => r.user.toString() === req.params.userId);
+    if (!reg) return res.status(404).json({ message: 'Tirador no inscripto' });
+
+    const { velocidades, pesoProyectil, finalizar } = req.body;
+
+    if (velocidades !== undefined) reg.powerFactor.velocidades = velocidades;
+    if (pesoProyectil !== undefined) reg.powerFactor.pesoProyectil = pesoProyectil;
+
+    if (finalizar) {
+      const vels = reg.powerFactor.velocidades.filter(v => v > 0);
+      const peso = reg.powerFactor.pesoProyectil;
+      if (vels.length >= 3 && peso) {
+        const promedio = vels.reduce((a, b) => a + b, 0) / vels.length;
+        const resultado = Math.floor(peso * promedio / 1000);
+        reg.powerFactor.resultado = resultado;
+        reg.powerFactor.aprobado = resultado >= 125;
+        reg.powerFactor.medido = true;
+        // DQ if below minimum
+        if (resultado < 125) {
+          reg.dq = true;
+          reg.dqReason = `Factor de potencia insuficiente: ${resultado} (mínimo 125)`;
+        }
+      }
+    }
+
+    await event.save();
+    const populated = await Event.findById(req.params.id)
+      .populate('registrations.user', 'name email')
+      .populate('squads.members', 'name email')
+      .populate('stages.scores.shooter', 'name email');
+    res.json(populated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
