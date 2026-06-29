@@ -112,46 +112,46 @@ function PowerFactorEntry({ registration, eventId, onSaved, locked }) {
         <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
           Velocidades (pies/seg)
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '0.875rem' }}>
           {Array.from({ length: 8 }, (_, i) => {
             const isDisabled = locked ||
               (i >= 3 && velsFilled < 3) ||   // 4-6 only if first 3 done
               (i >= 6 && velsFilled < 6);      // 7-8 only if first 6 done
-            const groupLabel = i === 0 ? '1ª ronda' : i === 3 ? '2ª ronda' : i === 6 ? '3ª ronda' : null;
+            const groupLabel = i === 0 ? '1ª ronda (disparos 1-3)' : i === 3 ? '2ª ronda (disparos 4-6)' : i === 6 ? '3ª ronda (disparos 7-8)' : null;
             return (
-              <div key={i}>
+              <React.Fragment key={i}>
                 {groupLabel && (
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '0.2rem', gridColumn: 'span 1' }}>
+                  <div style={{ gridColumn: '1 / -1', fontSize: '0.72rem', fontWeight: 700, color: isDisabled ? '#d1d5db' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: i > 0 ? '0.5rem' : 0, borderTop: i > 0 ? '1px dashed var(--border)' : 'none' }}>
                     {groupLabel}
                   </div>
                 )}
                 <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)',
-                    fontSize: '0.7rem', color: 'var(--text-muted)', pointerEvents: 'none'
-                  }}>{i + 1}</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className="form-control"
-                    disabled={isDisabled}
-                    value={velocidades[i]}
-                    onFocus={e => e.target.select()}
-                    onChange={e => handleVelocidad(i, e.target.value)}
-                    style={{
-                      paddingLeft: '1.4rem', textAlign: 'right',
-                      opacity: isDisabled ? 0.4 : 1,
-                      background: isDisabled ? '#f9fafb' : '#fff'
-                    }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isDisabled ? '#d1d5db' : 'var(--text-muted)', minWidth: '20px', textAlign: 'center' }}>{i + 1}</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="form-control"
+                      disabled={isDisabled}
+                      value={velocidades[i]}
+                      onFocus={e => e.target.select()}
+                      onChange={e => handleVelocidad(i, e.target.value)}
+                      placeholder={isDisabled ? '—' : '0'}
+                      style={{
+                        textAlign: 'right', flex: 1,
+                        opacity: isDisabled ? 0.4 : 1,
+                        background: isDisabled ? '#f9fafb' : '#fff'
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
 
         {/* Peso proyectil */}
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.875rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1 }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>
               Peso del proyectil (grains)
@@ -180,11 +180,11 @@ function PowerFactorEntry({ registration, eventId, onSaved, locked }) {
 
         {/* Actions */}
         {!locked && (
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
             <button
               onClick={() => handleSave(false)}
               disabled={saving}
-              style={{ flex: 1, padding: '0.6rem', background: '#fff', border: '1.5px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', color: 'var(--text)' }}
+              style={{ width: '100%', padding: '0.75rem', background: '#fff', border: '1.5px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', color: 'var(--text)' }}
             >
               💾 Guardar borrador
             </button>
@@ -192,7 +192,7 @@ function PowerFactorEntry({ registration, eventId, onSaved, locked }) {
               onClick={() => handleSave(true)}
               disabled={saving || !canFinalize}
               style={{
-                flex: 1, padding: '0.6rem', border: 'none', borderRadius: '8px',
+                width: '100%', padding: '0.75rem', border: 'none', borderRadius: '8px',
                 fontWeight: 700, fontSize: '0.875rem', cursor: canFinalize ? 'pointer' : 'not-allowed',
                 background: canFinalize ? 'var(--primary)' : '#e5e7eb',
                 color: canFinalize ? '#fff' : '#9ca3af'
@@ -288,7 +288,7 @@ export default function PowerFactorTab({ event, isAdmin, isOC, onEventUpdate }) 
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Left: shooter selector */}
         <div className="card">
           <div className="card-header">
@@ -308,7 +308,7 @@ export default function PowerFactorTab({ event, isAdmin, isOC, onEventUpdate }) 
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
                   10% de {event.registrations.filter(r => !r.dq).length} inscriptos = {Math.max(1, Math.ceil(event.registrations.filter(r => !r.dq).length * 0.1))} tiradores sugeridos
                 </div>
-                <div className="user-list" style={{ maxHeight: '400px' }}>
+                <div className="user-list" style={{ maxHeight: '50vh' }}>
                   {allShooters.map(reg => {
                     const uid = reg.user?._id || reg.user;
                     const isSelected = selectedIds?.includes(uid);
