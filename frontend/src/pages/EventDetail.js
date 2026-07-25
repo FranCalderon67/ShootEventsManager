@@ -329,7 +329,7 @@ export default function EventDetail() {
   const allShooters = event.registrations?.map(r => r.user).filter(Boolean) || [];
 
   const CATEGORIAS = ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'];
-  const DIVISIONES = ['Custom', 'Stock', 'Optic'];
+  const DIVISIONES = ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver'];
 
   const adminEditModal = editingReg && (
     <div className="modal-overlay">
