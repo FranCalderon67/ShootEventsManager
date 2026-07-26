@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminUsers from './AdminUsers';
+import ExcelDownloadButton from '../components/ExcelDownloadButton';
 
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function AdminPanel() {
         <button className="btn btn-accent" style={{ padding: '1rem 1.5rem', fontSize: '1rem' }} onClick={() => navigate('/admin/events/new')}>
           + Crear Nuevo Evento
         </button>
+        <ExcelDownloadButton />
       </div>
 
       <AdminUsers />

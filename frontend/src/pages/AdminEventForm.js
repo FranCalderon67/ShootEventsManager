@@ -83,7 +83,7 @@ export default function AdminEventForm() {
     });
   };
 
-  const DIVISIONES = ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver'];
+  const DIVISIONES = ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', 'Legend'];
 
   return (
     <div className="page" style={{ maxWidth: '700px' }}>

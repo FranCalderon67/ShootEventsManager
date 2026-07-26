@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const DIVISIONES = ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver'];
+const DIVISIONES = ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', 'Legend'];
 
 const DIVISION_INFO = {
   Custom: [
@@ -21,6 +21,7 @@ const DIVISION_INFO = {
   ],
   PCC: [],
   Revolver: [],
+  Legend: ['Plataforma 1911'],
 };
 
 function InfoTooltip({ division }) {

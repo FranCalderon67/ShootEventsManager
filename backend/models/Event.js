@@ -14,7 +14,7 @@ const scoreSchema = new mongoose.Schema({
   time: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   saved: { type: Boolean, default: false },
-  division: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver'], default: null }
+  division: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', 'Legend'], default: null }
 });
 
 scoreSchema.pre('save', function (next) {
@@ -41,8 +41,8 @@ const squadSchema = new mongoose.Schema({
 const registrationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   categoria: { type: String, enum: ['Junior', 'General', 'Senior', 'Super Senior', 'Grand Senior', 'Lady'], required: true },
-  division: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver'], required: true },
-  divisionAlternativa: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', null], default: null },
+  division: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', 'Legend'], required: true },
+  divisionAlternativa: { type: String, enum: ['Custom', 'Stock', 'Optic', 'PCC', 'Revolver', 'Legend', null], default: null },
   isOC: { type: Boolean, default: false },
   dq: { type: Boolean, default: false },
   dqReason: { type: String, default: '' },
